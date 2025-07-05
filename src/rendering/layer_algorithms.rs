@@ -49,7 +49,7 @@ macro_rules! delegate_layer_implementation {
 
 /// An implementation of a layering algorithm.
 #[repr(u8)]
-enum LayerImplementation {
+pub enum LayerImplementation {
     Colour(ColourAlgorithm),
     OrbitTrap(OrbitTrapAlgorithm),
     Shading3D(Shading3DAlgorithm),
@@ -88,7 +88,7 @@ impl LayerAlgorithm for LayerImplementation {
 
 /// Simple smooth colouring algorithm tracking the number of iterations a point takes to diverge, and returning
 /// the smoothed iteration value.
-struct ColourAlgorithm {
+pub struct ColourAlgorithm {
     output: f64,
 }
 impl ColourAlgorithm {
@@ -131,7 +131,7 @@ impl LayerAlgorithm for ColourAlgorithm {
 
 /// Orbit trap algorithm looking at the minimum distance between an orbit and an orbit trap,
 /// calculating a trapped index to be used in the palette.
-struct OrbitTrapAlgorithm {
+pub struct OrbitTrapAlgorithm {
     output: f64,
     min_distance2: f64,
     divisor: f64,
@@ -141,7 +141,7 @@ struct OrbitTrapAlgorithm {
     closest_to_trap_big: BigComplex,
 }
 impl OrbitTrapAlgorithm {
-    fn new(trap: OrbitTrapType) -> Self {
+    pub fn new(trap: OrbitTrapType) -> Self {
         Self {
             output: 0.0,
             min_distance2: f64::INFINITY,
@@ -214,7 +214,7 @@ impl LayerAlgorithm for OrbitTrapAlgorithm {
 /// 3d algorithm to shade the set to give height.
 /// Theory from: https://www.math.univ-toulouse.fr/~cheritat/wiki-draw/index.php/Mandelbrot_set#Normal_map_effect,
 /// calculating a t value that represents darkness/brightness.
-struct Shading3DAlgorithm {
+pub struct Shading3DAlgorithm {
     output: f64,
     v: Complex,
     v_big: BigComplex,
@@ -227,7 +227,7 @@ impl Shading3DAlgorithm {
     const H2: f64 = 1.5;
     const ANGLE: f64 = -45.0;
 
-    fn new() -> Self {
+    pub fn new() -> Self {
         Self {
             output: 0.0,
             v: Complex::new(
@@ -295,5 +295,10 @@ impl LayerAlgorithm for Shading3DAlgorithm {
 }
 
 /// Triangle inequality algorithm
-struct TriangleInequalityAlgorithm {}
+pub struct TriangleInequalityAlgorithm {}
+impl TriangleInequalityAlgorithm {
+    pub fn new() -> Self {
+        Self {}
+    }
+}
 // impl LayerAlgorithm for TriangleInequalityAlgorithm {}
