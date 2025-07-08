@@ -1,14 +1,12 @@
-use std::hash::Hash;
-
 use crate::rendering::{
-    layer_algorithms::*,
+    algorithms::layer_algorithms::*,
+    manager::layer_error::LayerError,
     orbit_trap::OrbitTrapType,
-    palette::{Palette, interpolate_colour},
+    palette::{Palette, blend_colours},
 };
 use macroquad::prelude::*;
 
 /// An individual rendering layer
-
 pub struct Layer {
     pub name: String,
     pub algorithm: LayerAlgorithmKind,
@@ -23,6 +21,8 @@ impl Layer {
         strength: f32,
         palette: Palette,
     ) -> Self {
+        assert!(0.0 <= strength && strength <= 1.0);
+
         Self {
             name: "Layer".to_owned(),
             algorithm,
@@ -38,23 +38,20 @@ impl Layer {
         prev_colour: Option<Color>,
         implementator_output: f64,
         in_set: bool,
-    ) -> Option<Color> {
+    ) -> Result<Option<Color>, LayerError> {
         if !self.application_range.layer_applies(in_set) {
-            return prev_colour;
+            return Ok(prev_colour);
         }
 
-        let this_colour =
-            self.algorithm
-                .update_colour(prev_colour, implementator_output, &self.palette);
+        let this_colour = self
+            .palette
+            .get_colour_at_layer_output(implementator_output);
 
-        Some(interpolate_colour(
-            match prev_colour {
-                Some(c) => c,
-                None => BLACK,
-            },
+        Ok(Some(blend_colours(
+            prev_colour.unwrap_or(BLACK),
             this_colour,
             self.strength,
-        ))
+        )))
     }
 }
 impl Default for Layer {
@@ -71,64 +68,25 @@ impl Default for Layer {
 /// The algorithm the layer uses.
 pub enum LayerAlgorithmKind {
     Colour,
-    OrbitTrap { trap: OrbitTrapType, shading: bool },
+    OrbitTrap { trap: OrbitTrapType },
     Shading3D,
-    TriangleInequality { shading: bool },
+    TriangleInequality,
 }
 impl LayerAlgorithmKind {
     /// Returns all the different types of implementations that are reusable.
     pub fn reusable_variants() -> [Self; 3] {
-        [
-            Self::Colour,
-            Self::Shading3D,
-            Self::TriangleInequality { shading: true },
-        ]
+        [Self::Colour, Self::Shading3D, Self::TriangleInequality]
     }
 
     pub fn get_new_implementation(&self) -> LayerImplementation {
         match self {
             Self::Colour => LayerImplementation::Colour(ColourAlgorithm::new()),
-            Self::OrbitTrap { trap, shading } => {
+            Self::OrbitTrap { trap, .. } => {
                 LayerImplementation::OrbitTrap(OrbitTrapAlgorithm::new((*trap).clone()))
             }
             Self::Shading3D => LayerImplementation::Shading3D(Shading3DAlgorithm::new()),
-            Self::TriangleInequality { shading } => {
+            Self::TriangleInequality { .. } => {
                 LayerImplementation::TriangleInequality(TriangleInequalityAlgorithm::new())
-            }
-        }
-    }
-
-    fn is_shading(&self) -> bool {
-        match self {
-            Self::Shading3D => true,
-            Self::OrbitTrap { trap: _, shading } => *shading,
-            Self::TriangleInequality { shading } => *shading,
-            _ => false,
-        }
-    }
-
-    /// Updates the pixel's colour after being passed through this layer's algorithm
-    ///
-    /// # Panics
-    /// If this is a shading algorithm, but the pixel hasn't been given a colour to shade from previous layers.
-    fn update_colour(
-        &self,
-        prev_colour: Option<Color>,
-        implementator_output: f64,
-        palette: &Palette,
-    ) -> Color {
-        match self {
-            Self::Colour => palette.get_colour_at_layer_output(implementator_output),
-            Self::OrbitTrap { trap: _, shading } | Self::TriangleInequality { shading } => {
-                let out_colour = palette.get_colour_at_layer_output(implementator_output);
-                if *shading {
-                    interpolate_colour(prev_colour.unwrap(), out_colour, 1.0 - out_colour.r)
-                } else {
-                    out_colour
-                }
-            }
-            Self::Shading3D => {
-                interpolate_colour(BLACK, prev_colour.unwrap(), implementator_output as f32)
             }
         }
     }
@@ -140,21 +98,16 @@ impl PartialEq for LayerAlgorithmKind {
                 Self::Colour => true,
                 _ => false,
             },
-            Self::OrbitTrap { trap, shading } => match other {
-                Self::OrbitTrap {
-                    trap: other_trap,
-                    shading: other_shading,
-                } => *trap == *other_trap && *shading == *other_shading,
+            Self::OrbitTrap { trap } => match other {
+                Self::OrbitTrap { trap: other_trap } => *trap == *other_trap,
                 _ => false,
             },
             Self::Shading3D => match other {
                 Self::Shading3D => true,
                 _ => false,
             },
-            Self::TriangleInequality { shading } => match other {
-                Self::TriangleInequality {
-                    shading: other_shading,
-                } => *shading == *other_shading,
+            Self::TriangleInequality => match other {
+                Self::TriangleInequality => true,
                 _ => false,
             },
         }
@@ -175,9 +128,9 @@ impl LayerRange {
     /// Returns whether they layer applies to a point in/out the set.
     pub fn layer_applies(&self, in_set: bool) -> bool {
         match self {
-            LayerRange::InSet => return in_set,
-            LayerRange::OutSet => return !in_set,
-            LayerRange::Both => return true,
+            LayerRange::InSet => in_set,
+            LayerRange::OutSet => !in_set,
+            LayerRange::Both => true,
         }
     }
 

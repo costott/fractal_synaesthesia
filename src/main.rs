@@ -2,7 +2,7 @@ use fractal_synaesthesia::shaders::*;
 use macroquad::prelude::*;
 
 use dashu_float::FBig;
-use fractal_synaesthesia::rendering::render_algorithms::{Fractal, ReferenceOrbit};
+use fractal_synaesthesia::rendering::algorithms::render_algorithms::{Fractal, ReferenceOrbit};
 use fractal_synaesthesia::types::BigComplex;
 
 fn window_conf() -> Conf {
