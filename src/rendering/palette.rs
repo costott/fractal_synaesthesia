@@ -34,7 +34,7 @@ fn alpha_blend(bg: Color, fg: Color) -> Color {
     )
 }
 
-/// Alpha blend over the `background` and `foreground` with `strength`.`
+/// Alpha blend over the `background` and `foreground` with `strength`.
 pub fn blend_colours(bg: Color, fg: Color, strength: f32) -> Color {
     let scaled_fg = fg.with_alpha(fg.a * strength);
     alpha_blend(bg, scaled_fg)
