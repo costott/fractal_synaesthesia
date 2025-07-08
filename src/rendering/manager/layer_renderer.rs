@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use macroquad::prelude::*;
 
 use crate::{
@@ -14,16 +16,16 @@ use crate::{
 };
 
 /// Handles rendering logic for the set of layers
-pub struct LayerRenderer<'a> {
-    manager: &'a LayerManager,
+pub struct LayerRenderer {
+    manager: Arc<LayerManager>,
     implementations: Vec<LayerImplementation>,
     implementation_map: Vec<usize>,
 }
-impl<'a> LayerRenderer<'a> {
-    pub fn new(manager: &'a LayerManager) -> Self {
-        let (implementations, implementation_map) = Self::get_implementations(manager);
+impl LayerRenderer {
+    pub fn new(manager: Arc<LayerManager>) -> Self {
+        let (implementations, implementation_map) = Self::get_implementations(&manager);
         Self {
-            manager,
+            manager: Arc::clone(&manager),
             implementations,
             implementation_map,
         }
@@ -36,7 +38,7 @@ impl<'a> LayerRenderer<'a> {
     /// A tuple consisting of:
     /// * The vector of starting [`LayerImplementation`]s
     /// * A vector which maps, for every index of the layers, a value representing the [`LayerImplementation`] output to use.
-    fn get_implementations(manager: &LayerManager) -> (Vec<LayerImplementation>, Vec<usize>) {
+    fn get_implementations(manager: &Arc<LayerManager>) -> (Vec<LayerImplementation>, Vec<usize>) {
         let mut implementations = Vec::new();
         let mut implementation_map = Vec::with_capacity(manager.layers.len());
 
@@ -77,9 +79,9 @@ impl<'a> LayerRenderer<'a> {
     /// Get the colour of the pixel by running the rendering algorithm and passing the result through all layers.
     pub fn render_pixel(
         &mut self,
-        fractal: &Fractal,
+        fractal: &Arc<Fractal>,
         pixel_dc: Complex,
-        reference_orbit: &ReferenceOrbit,
+        reference_orbit: &Arc<ReferenceOrbit>,
         max_iterations: u32,
         bailout2: f64,
     ) -> Result<Color, LayerError> {
