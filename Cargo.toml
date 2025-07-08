@@ -8,3 +8,6 @@ dashu-float = "0.4.3"
 macroquad = "0.4.14"
 num_cpus = "1.17.0"
 threadpool = "1.8.1"
+
+[profile.dev]
+opt-level = 3

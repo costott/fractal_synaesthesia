@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use super::layer_algorithms::{LayerAlgorithm, LayerImplementation};
 use crate::types::*;
@@ -35,6 +35,15 @@ impl Fractal {
     }
 }
 
+#[derive(Clone)]
+pub struct FractalParams {
+    pub fractal: Arc<Fractal>,
+    pub center: Arc<Mutex<BigComplex>>,
+    pub pixel_step: f64,
+    pub max_iterations: u32,
+    pub bailout2: f64,
+}
+
 pub struct ReferenceOrbit {
     /// the reference orbit, starting from `0 + 0i`
     pub ref_z: Vec<Complex>,
@@ -42,20 +51,19 @@ pub struct ReferenceOrbit {
     pub max_ref_iteration: u32,
 }
 impl ReferenceOrbit {
-    pub fn new(
-        fractal: &Fractal,
-        center: &BigComplex,
-        max_iterations: u32,
-        bailout2: f64,
-    ) -> ReferenceOrbit {
-        let mut ref_z: Vec<Complex> = Vec::with_capacity(max_iterations as usize);
+    pub fn new(fractal_params: &Arc<Mutex<FractalParams>>) -> ReferenceOrbit {
+        let params = fractal_params.lock().unwrap();
+
+        let mut ref_z: Vec<Complex> = Vec::with_capacity(params.max_iterations as usize);
         let mut max_ref_iteration = 0;
 
         let mut z = BigComplex::from_f64s(0., 0.);
-        for i in 0..max_iterations {
+        for i in 0..params.max_iterations {
             ref_z.push(z.as_complex());
-            if z.abs_squared() < bailout2 {
-                fractal.iterate_big(&mut z, center);
+            if z.abs_squared() < params.bailout2 {
+                params
+                    .fractal
+                    .iterate_big(&mut z, &params.center.lock().unwrap());
                 max_ref_iteration = i;
             } else {
                 break;
