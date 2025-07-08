@@ -2,7 +2,7 @@
 use crate::rendering::manager::layer::Layer;
 use macroquad::prelude::*;
 
-/// Controls the structure (order, number) of the layers
+/// Controls the structure (order, number) of the layers.
 pub struct LayerManager {
     pub layers: Vec<Layer>,
 }

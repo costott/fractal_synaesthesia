@@ -1,9 +1,13 @@
-use fractal_synaesthesia::shaders::*;
+pub mod rendering;
+pub mod shaders;
+pub mod types;
+
 use macroquad::prelude::*;
 
 use dashu_float::FBig;
-use fractal_synaesthesia::rendering::algorithms::render_algorithms::{Fractal, ReferenceOrbit};
-use fractal_synaesthesia::types::BigComplex;
+use rendering::algorithms::render_algorithms::{Fractal, ReferenceOrbit};
+use shaders::*;
+use types::BigComplex;
 
 fn window_conf() -> Conf {
     Conf {
@@ -102,8 +106,8 @@ async fn main() {
         set_pipleine_material_uniforms(
             &material,
             &center,
-            reference_orbit.max_ref_iteration,
-            max_iterations,
+            reference_orbit.max_ref_iteration as usize,
+            max_iterations as usize,
             bailout2,
             pixel_step,
             (screen_width(), screen_height()),
