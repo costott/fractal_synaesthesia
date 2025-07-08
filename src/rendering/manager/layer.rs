@@ -59,7 +59,7 @@ impl Default for Layer {
         Self::new(
             LayerAlgorithmKind::Colour,
             LayerRange::OutSet,
-            0.,
+            1.,
             Palette::default(),
         )
     }

@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use macroquad::prelude::*;
 
@@ -17,12 +17,12 @@ use crate::{
 
 /// Handles rendering logic for the set of layers
 pub struct LayerRenderer {
-    manager: Arc<LayerManager>,
+    manager: Arc<Mutex<LayerManager>>,
     implementations: Vec<LayerImplementation>,
     implementation_map: Vec<usize>,
 }
 impl LayerRenderer {
-    pub fn new(manager: Arc<LayerManager>) -> Self {
+    pub fn new(manager: Arc<Mutex<LayerManager>>) -> Self {
         let (implementations, implementation_map) = Self::get_implementations(&manager);
         Self {
             manager: Arc::clone(&manager),
@@ -38,7 +38,11 @@ impl LayerRenderer {
     /// A tuple consisting of:
     /// * The vector of starting [`LayerImplementation`]s
     /// * A vector which maps, for every index of the layers, a value representing the [`LayerImplementation`] output to use.
-    fn get_implementations(manager: &Arc<LayerManager>) -> (Vec<LayerImplementation>, Vec<usize>) {
+    fn get_implementations(
+        manager: &Arc<Mutex<LayerManager>>,
+    ) -> (Vec<LayerImplementation>, Vec<usize>) {
+        let manager = manager.lock().unwrap();
+
         let mut implementations = Vec::new();
         let mut implementation_map = Vec::with_capacity(manager.layers.len());
 
@@ -100,7 +104,7 @@ impl LayerRenderer {
     /// After determining the implementations' outputs, use it to colour the pixel by passing through all layers.
     fn colour_pixel(&self, in_set: bool) -> Result<Color, LayerError> {
         let mut colour: Option<Color> = None;
-        for (i, layer) in self.manager.layers.iter().enumerate() {
+        for (i, layer) in self.manager.lock().unwrap().layers.iter().enumerate() {
             let output = self.implementations[self.implementation_map[i]].get_output();
             colour = layer.determine_colour(colour, output, in_set)?;
         }
