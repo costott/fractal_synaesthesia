@@ -18,6 +18,28 @@ pub fn interpolate_colour(c1: Color, c2: Color, fraction: f32) -> Color {
     )
 }
 
+/// Alpha blending between the current `background` and the `foreground`.
+fn alpha_blend(bg: Color, fg: Color) -> Color {
+    let out_alpha = fg.a + bg.a * (1.0 - fg.a);
+
+    if out_alpha <= 0.0 {
+        return BLANK;
+    }
+
+    Color::new(
+        (fg.r * fg.a + bg.r * bg.a * (1.0 - fg.a)) / out_alpha,
+        (fg.g * fg.a + bg.g * bg.a * (1.0 - fg.a)) / out_alpha,
+        (fg.b * fg.a + bg.b * bg.a * (1.0 - fg.a)) / out_alpha,
+        out_alpha,
+    )
+}
+
+/// Alpha blend over the `background` and `foreground` with `strength`.`
+pub fn blend_colours(bg: Color, fg: Color, strength: f32) -> Color {
+    let scaled_fg = fg.with_alpha(fg.a * strength);
+    alpha_blend(bg, scaled_fg)
+}
+
 /// A colour palette used for assigning a colour to a given [`Layer`](crate::rendering::render_layer::Layer) output value.
 pub struct Palette {
     pub colour_map: ColourMap,
@@ -58,17 +80,17 @@ impl Palette {
         mapping_type: PaletteMappingType,
         length: f32,
         offset: f32,
-    ) -> Palette {
-        assert!(0.0 < length && length <= 1.0);
-        assert!(0.0 <= offset && offset <= 1.0);
+    ) -> Self {
+        Self::new(ColourMap::new_even(colours), mapping_type, length, offset)
+    }
 
-        Self {
-            colour_map: ColourMap::new_even(colours),
+    pub fn default_shading(mapping_type: PaletteMappingType, length: f32, offset: f32) -> Self {
+        Self::new(
+            ColourMap::new_even(vec![BLACK, BLANK]),
             mapping_type,
             length,
             offset,
-            palette_cache: Vec::new(),
-        }
+        )
     }
 
     pub fn get_length(&self) -> f32 {
@@ -106,7 +128,6 @@ impl Palette {
     pub fn get_colour_at_percentage(&self, mut percent: f32, apply_offset: bool) -> Color {
         assert!(0.0 <= percent && percent <= 1.0);
 
-        // apply offset
         if apply_offset {
             percent += self.offset;
             percent = percent % 1.;
@@ -117,30 +138,26 @@ impl Palette {
 
     /// Returns a vector of colours for every iteration up to `max_iterations` using the [`PaletteMappingType::Constant`] method.
     fn get_constant_palette(&self, max_iterations: usize) -> Vec<Color> {
-        let mut palette = Vec::with_capacity(max_iterations + 1);
-
-        for i in 0..=max_iterations {
-            let total_percent = i as f32 / max_iterations as f32;
-            // takes the total percent and converts it to a fraction of the palette length
-            let length_percent = (total_percent % self.length) / self.length;
-            palette.push(self.get_colour_at_percentage(length_percent, true));
-        }
-
-        palette
+        (0..=max_iterations)
+            .map(|i| {
+                let total_percent = i as f32 / max_iterations as f32;
+                // takes the total percent and converts it to a fraction of the palette length
+                let length_percent = (total_percent % self.length) / self.length;
+                self.get_colour_at_percentage(length_percent, true)
+            })
+            .collect()
     }
 
     /// Returns a vector of colours for every iteration up to `max_iterations` using the [`PaletteMappingType::Repeated`] method.
     fn get_repeated_palette(&self, max_iterations: usize) -> Vec<Color> {
-        let mut palette = Vec::with_capacity(max_iterations + 1);
-
         let colours_per_i = self.length * Self::REPEATED_DEPTH as f32;
 
-        for i in 0..=max_iterations {
-            let percent = (i as f32 % colours_per_i) / colours_per_i;
-            palette.push(self.get_colour_at_percentage(percent, true));
-        }
-
-        palette
+        (0..=max_iterations)
+            .map(|i| {
+                let percent = (i as f32 % colours_per_i) / colours_per_i;
+                self.get_colour_at_percentage(percent, true)
+            })
+            .collect()
     }
 
     /// Generates and caches the full palette.
@@ -153,11 +170,14 @@ impl Palette {
 
     /// Returns the colour the pixel that reached the given layer output value `l_output` should be.
     pub fn get_colour_at_layer_output(&self, l_output: f64) -> Color {
-        let lower_colour = self.palette_cache[l_output.floor() as usize];
-        let upper_colour =
-            self.palette_cache[(l_output.floor() as usize + 1).min(self.palette_cache.len() - 1)];
+        let i = l_output.floor() as usize;
+        let next_i = (i + 1).min(self.palette_cache.len() - 1);
 
-        interpolate_colour(lower_colour, upper_colour, l_output as f32 % 1.0)
+        interpolate_colour(
+            self.palette_cache[i],
+            self.palette_cache[next_i],
+            (l_output % 1.0) as f32,
+        )
     }
 
     /// Returns the full gradient as a texture of the required size.
@@ -165,8 +185,8 @@ impl Palette {
         let mut image = Image::gen_image_color(width as u16, height as u16, WHITE);
 
         for i in 0..width as u32 {
+            let colour = self.get_colour_at_percentage(i as f32 / (width - 1.0), false);
             for j in 0..height as u32 {
-                let colour = self.get_colour_at_percentage(i as f32 / (width - 1.), false);
                 image.set_pixel(i, j, colour);
             }
         }
@@ -177,13 +197,12 @@ impl Palette {
     /// Gets the full palette as a texture of the required size.
     pub fn get_full_palette(&self, width: f32, height: f32) -> Texture2D {
         let mut image = Image::gen_image_color(width as u16, height as u16, WHITE);
-
         let max_iterations = self.palette_cache.len() - 1;
 
         for i in 0..width as u32 {
             let iteration = max_iterations as f32 * (i as f32 / (width - 1.));
+            let colour = self.get_colour_at_layer_output(iteration as f64);
             for j in 0..height as u32 {
-                let colour = self.get_colour_at_layer_output(iteration as f64);
                 image.set_pixel(i, j, colour);
             }
         }
@@ -238,24 +257,22 @@ impl ColourMap {
         sorted.sort_by_key(|p| (p.percent_pos * 100.) as u32);
 
         // add the two extremes to both sides so they link together
-        let unique_sorted = sorted.clone();
-        sorted.insert(0, unique_sorted[unique_sorted.len() - 1].prev_percent());
-        sorted.push(unique_sorted[0].next_percent());
+        let first = sorted.first().unwrap().next_percent();
+        let last = sorted.last().unwrap().prev_percent();
+
+        sorted.insert(0, last);
+        sorted.push(first);
 
         Self { inner: sorted }
     }
 
     fn get_colour_at_percentage(&self, percent: f32) -> Color {
         let sorted = self.sort().inner;
-
         // index of the colour point immediately after the given percentage
-        let mut next_i = sorted.len() - 1;
-        for i in 0..sorted.len() {
-            if sorted[i].percent_pos > percent {
-                next_i = i;
-                break;
-            }
-        }
+        let next_i = sorted
+            .iter()
+            .position(|p| p.percent_pos > percent)
+            .unwrap_or(sorted.len() - 1);
 
         let (prev, next) = (sorted[next_i - 1], sorted[next_i]);
         interpolate_colour(
