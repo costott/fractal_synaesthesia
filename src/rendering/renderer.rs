@@ -21,33 +21,45 @@ pub struct RenderParams {
     pub bailout2: f64,
 }
 
-fn spawn_render_tasks(
-    render_params: Arc<RenderParams>,
+pub struct Renderer {
+    params: Arc<RenderParams>,
     thread_pool: ThreadPool,
-    threads: usize,
-    layer_renderer: Arc<Mutex<LayerRenderer>>,
-    reference_orbit: Arc<ReferenceOrbit>,
-) {
-    let render_task = Arc::new(RenderTask {
-        layer_renderer,
-        reference_orbit,
-        render_params: Arc::clone(&render_params),
-    });
+}
+impl Renderer {
+    pub fn new(params: &Arc<RenderParams>) -> Self {
+        Self {
+            params: Arc::clone(params),
+            thread_pool: ThreadPool::new((num_cpus::get() - 1).max(1)),
+        }
+    }
 
-    for t in 0..threads {
-        let image = Arc::clone(&render_params.image);
-        let render_task = Arc::clone(&render_task);
-
-        thread_pool.execute(move || {
-            let mut image = image.lock().unwrap();
-            let thread_height = (image.height() as f32 / threads as f32).ceil() as usize;
-
-            render_task.run_on(
-                TaskRegion::new(t * thread_height, thread_height, 0, image.width()),
-                |x, y, colour| {
-                    image.set_pixel(x, y, colour);
-                },
-            );
+    pub fn spawn_render_tasks(
+        &self,
+        layer_renderer: Arc<Mutex<LayerRenderer>>,
+        reference_orbit: Arc<ReferenceOrbit>,
+    ) {
+        let render_task = Arc::new(RenderTask {
+            layer_renderer,
+            reference_orbit,
+            render_params: Arc::clone(&self.params),
         });
+        let threads = self.thread_pool.max_count();
+
+        for t in 0..threads {
+            let image = Arc::clone(&self.params.image);
+            let render_task = Arc::clone(&render_task);
+
+            self.thread_pool.execute(move || {
+                let mut image = image.lock().unwrap();
+                let thread_height = (image.height() as f32 / threads as f32).ceil() as usize;
+
+                render_task.run_on(
+                    TaskRegion::new(t * thread_height, thread_height, 0, image.width()),
+                    |x, y, colour| {
+                        image.set_pixel(x, y, colour);
+                    },
+                );
+            });
+        }
     }
 }

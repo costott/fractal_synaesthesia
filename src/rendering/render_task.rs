@@ -48,19 +48,21 @@ impl RenderTask {
                     y as f64 * self.render_params.pixel_step - self.render_params.center.im_f64(),
                 );
 
-                match self.layer_renderer.lock().unwrap().render_pixel(
+                let colour = match self.layer_renderer.lock().unwrap().render_pixel(
                     &self.render_params.fractal,
                     dc,
                     &self.reference_orbit,
                     self.render_params.max_iterations,
                     self.render_params.bailout2,
                 ) {
-                    Ok(colour) => emit_pixel(x as u32, y as u32, colour),
+                    Ok(c) => c,
                     Err(e) => {
-                        emit_pixel(x as u32, y as u32, macroquad::color::RED); // fail visibly
                         eprintln!("{:?}", e);
+                        macroquad::color::RED // fail visibly
                     }
-                }
+                };
+
+                emit_pixel(x as u32, y as u32, colour);
             }
         }
     }
