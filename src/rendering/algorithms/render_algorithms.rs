@@ -17,16 +17,14 @@ impl Fractal {
     pub fn iterate_perturbed(
         &self,
         reference_orbit: &ReferenceOrbit,
-        ref_iteration: u32,
+        ref_iteration: usize,
         dz: &mut Complex,
         dc: &Complex,
     ) {
         match *self {
             Self::Mandelbrot { power } => {
                 if power == 2 {
-                    *dz = reference_orbit.ref_z[ref_iteration as usize] * *dz * 2.0
-                        + dz.square()
-                        + *dc;
+                    *dz = reference_orbit.ref_z[ref_iteration] * *dz * 2.0 + dz.square() + *dc;
                 } else {
                     todo!();
                 }
@@ -48,7 +46,7 @@ pub struct ReferenceOrbit {
     /// the reference orbit, starting from `0 + 0i`
     pub ref_z: Vec<Complex>,
     /// the iteration just before the referencre orbit diverged
-    pub max_ref_iteration: u32,
+    pub max_ref_iteration: usize,
 }
 impl ReferenceOrbit {
     pub fn new(fractal_params: &Arc<Mutex<FractalParams>>) -> ReferenceOrbit {
@@ -64,7 +62,7 @@ impl ReferenceOrbit {
                 params
                     .fractal
                     .iterate_big(&mut z, &params.center.lock().unwrap());
-                max_ref_iteration = i;
+                max_ref_iteration = i as usize;
             } else {
                 break;
             }
@@ -140,7 +138,7 @@ pub fn analyse_pixel(
         fractal.iterate_perturbed(reference_orbit, ref_iteration, &mut dz, &dc);
         ref_iteration += 1;
 
-        let z = reference_orbit.ref_z[ref_iteration as usize] + dz;
+        let z = reference_orbit.ref_z[ref_iteration] + dz;
 
         // Point escaped
         if z.abs_squared() > bailout2 {
@@ -151,7 +149,7 @@ pub fn analyse_pixel(
         }
 
         // Rebase |z + dz| < |dz|
-        if z.abs_squared() < dz.abs_squared() || ref_iteration >= reference_orbit.max_ref_iteration
+        if z.abs_squared() < dz.abs_squared() || ref_iteration == reference_orbit.max_ref_iteration
         {
             dz = z;
             ref_iteration = 0;
@@ -160,7 +158,7 @@ pub fn analyse_pixel(
 
     // Point stayed bounded
     for im in implementations.iter_mut() {
-        im.in_set_double(reference_orbit.ref_z[ref_iteration as usize] + dz);
+        im.in_set_double(reference_orbit.ref_z[ref_iteration] + dz);
     }
 
     true

@@ -4,10 +4,11 @@ use macroquad::prelude::*;
 
 use crate::rendering::{
     algorithms::render_algorithms::{FractalParams, ReferenceOrbit},
-    manager::layer_renderer::LayerRenderer,
+    manager::layers_renderer::LayersRenderer,
     renderer::Renderer,
 };
 
+#[derive(Clone, Copy)]
 pub struct CanvasDimensions {
     pub width: u16,
     pub height: u16,
@@ -15,6 +16,7 @@ pub struct CanvasDimensions {
 
 pub struct FractalCanvas {
     image: Arc<Mutex<Image>>,
+    pub dims: CanvasDimensions,
     texture: Texture2D,
     renderer: Renderer,
 }
@@ -31,6 +33,7 @@ impl FractalCanvas {
 
         Self {
             image,
+            dims: dimensions,
             texture,
             renderer,
         }
@@ -47,7 +50,7 @@ impl FractalCanvas {
 
     pub fn update_render(
         &mut self,
-        layer_renderer: Arc<Mutex<LayerRenderer>>,
+        layer_renderer: &LayersRenderer,
         fractal_params: Arc<Mutex<FractalParams>>,
         reference_orbit: Arc<ReferenceOrbit>,
     ) {

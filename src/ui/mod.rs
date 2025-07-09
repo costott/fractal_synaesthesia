@@ -1,5 +1,6 @@
 pub mod fractal_canvas;
 pub mod keyboard_controller;
+pub mod zoom_window;
 
 use macroquad::prelude::*;
 use std::sync::{Arc, Mutex};
@@ -10,13 +11,13 @@ use crate::{
         fractal_visualiser::FractalVisualiser,
     },
     types::BigComplex,
-    ui::{fractal_canvas::CanvasDimensions, keyboard_controller::KeyboardController},
+    ui::{fractal_canvas::CanvasDimensions, zoom_window::ZoomWindow},
 };
 
 pub struct App {
     fractal_visualiser: FractalVisualiser,
     fractal_params: Arc<Mutex<FractalParams>>,
-    keyboard_controller: KeyboardController,
+    zoom_window: ZoomWindow,
 }
 impl App {
     pub fn new() -> Self {
@@ -25,7 +26,7 @@ impl App {
             center: Arc::new(Mutex::new(BigComplex::from_f64s(-0.5, 0.0))),
             pixel_step: 0.005,
             max_iterations: 500,
-            bailout2: 4.0,
+            bailout2: 4.5,
         }));
 
         let dims = CanvasDimensions {
@@ -39,14 +40,15 @@ impl App {
         Self {
             fractal_params: params,
             fractal_visualiser: visualiser,
-            keyboard_controller: KeyboardController::new(),
+            zoom_window: ZoomWindow::new(),
         }
     }
 
     pub fn update(&mut self) {
-        let changed = self
-            .keyboard_controller
-            .update(Arc::clone(&self.fractal_params));
+        let changed = self.zoom_window.update(
+            Arc::clone(&self.fractal_params),
+            self.fractal_visualiser.canvas.dims,
+        );
 
         if changed {
             self.fractal_visualiser
@@ -58,5 +60,6 @@ impl App {
         clear_background(BLACK);
 
         self.fractal_visualiser.draw(0.0, 0.0);
+        self.zoom_window.draw();
     }
 }

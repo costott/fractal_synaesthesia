@@ -16,17 +16,18 @@ use crate::{
 };
 
 /// Handles rendering logic for the set of layers
-pub struct LayerRenderer {
+#[derive(Clone)]
+pub struct LayersRenderer {
     manager: Arc<Mutex<LayerManager>>,
-    implementations: Vec<LayerImplementation>,
+    start_implementations: Vec<LayerImplementation>,
     implementation_map: Vec<usize>,
 }
-impl LayerRenderer {
+impl LayersRenderer {
     pub fn new(manager: Arc<Mutex<LayerManager>>) -> Self {
         let (implementations, implementation_map) = Self::get_implementations(&manager);
         Self {
             manager: Arc::clone(&manager),
-            implementations,
+            start_implementations: implementations,
             implementation_map,
         }
     }
@@ -82,30 +83,36 @@ impl LayerRenderer {
 
     /// Get the colour of the pixel by running the rendering algorithm and passing the result through all layers.
     pub fn render_pixel(
-        &mut self,
+        &self,
         fractal: &Arc<Fractal>,
         pixel_dc: Complex,
         reference_orbit: &Arc<ReferenceOrbit>,
         max_iterations: u32,
         bailout2: f64,
     ) -> Result<Color, LayerError> {
+        let mut this_implementations = self.start_implementations.clone();
+
         let in_set = analyse_pixel(
             fractal,
             pixel_dc,
             reference_orbit,
             max_iterations,
             bailout2,
-            &mut self.implementations,
+            &mut this_implementations,
         );
 
-        self.colour_pixel(in_set)
+        self.colour_pixel(in_set, &this_implementations)
     }
 
     /// After determining the implementations' outputs, use it to colour the pixel by passing through all layers.
-    fn colour_pixel(&self, in_set: bool) -> Result<Color, LayerError> {
+    fn colour_pixel(
+        &self,
+        in_set: bool,
+        implementations: &Vec<LayerImplementation>,
+    ) -> Result<Color, LayerError> {
         let mut colour: Option<Color> = None;
         for (i, layer) in self.manager.lock().unwrap().layers.iter().enumerate() {
-            let output = self.implementations[self.implementation_map[i]].get_output();
+            let output = implementations[self.implementation_map[i]].get_output();
             colour = layer.determine_colour(colour, output, in_set)?;
         }
 
