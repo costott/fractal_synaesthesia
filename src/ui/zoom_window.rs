@@ -1,5 +1,6 @@
 use std::sync::{Arc, Mutex};
 
+use dashu_float::FBig;
 use macroquad::prelude::*;
 
 use crate::{
@@ -106,9 +107,15 @@ impl ZoomWindow {
         let (x, y) = mouse_position();
         let params = fractal_params.lock().unwrap();
         let pixel_step = params.pixel_step;
-        let dc = BigComplex::from_f64s(
-            -(canvas_dimensions.width as f64 / 2.0 - x as f64) * pixel_step,
-            (canvas_dimensions.height as f64 / 2.0 - y as f64) * pixel_step,
+        // let dc = BigComplex::from_f64s(
+        //     -(canvas_dimensions.width as f64 / 2.0 - x as f64) * pixel_step,
+        //     (canvas_dimensions.height as f64 / 2.0 - y as f64) * pixel_step,
+        // );
+        let big_pixel_step = FBig::try_from(pixel_step).unwrap();
+        let dc = BigComplex::new(
+            -FBig::try_from(canvas_dimensions.width as f32 / 2.0 - x).unwrap()
+                * big_pixel_step.clone(),
+            FBig::try_from(canvas_dimensions.height as f32 / 2.0 - y).unwrap() * big_pixel_step,
         );
 
         self.zoom_hold = Some(ZoomHold {
@@ -118,7 +125,7 @@ impl ZoomWindow {
                     canvas_dimensions.width as f32,
                     canvas_dimensions.height as f32,
                 ),
-            center: params.center.lock().unwrap().clone() + dc,
+            center: params.center.lock().unwrap().clone().safe_add(&dc),
             pixel_step: pixel_step * ZoomHold::MIN_SIZE,
         });
     }

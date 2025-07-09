@@ -453,6 +453,57 @@ impl BigComplex {
     pub fn im_f64(&self) -> f64 {
         self.im.to_f64().value()
     }
+
+    /// Ensures we're using the minimum precision for the desired number
+    pub fn min_precision(&mut self) {
+        fn get_min(current: FBig) -> usize {
+            let mut min_precision = current.precision();
+
+            while min_precision > 1 {
+                let less_precision = current.clone().with_precision(min_precision - 1).value();
+
+                if less_precision == current {
+                    min_precision -= 1;
+                } else {
+                    min_precision += 1;
+                    break;
+                }
+            }
+
+            min_precision
+        }
+
+        self.real = self
+            .real
+            .clone()
+            .with_precision(get_min(self.real.clone()))
+            .value();
+        self.im = self
+            .im
+            .clone()
+            .with_precision(get_min(self.im.clone()))
+            .value();
+    }
+
+    pub fn increase_precision(&self) -> Self {
+        Self::new(
+            self.real
+                .clone()
+                .with_precision(self.real.precision() * 2)
+                .value(),
+            self.im
+                .clone()
+                .with_precision(self.im.precision() * 2)
+                .value(),
+        )
+    }
+
+    /// Ensures accuracy is preserved during addition
+    pub fn safe_add(&self, other: &Self) -> Self {
+        let mut added = self.increase_precision() + other.increase_precision();
+        added.min_precision();
+        added
+    }
 }
 impl ComplexNumber for BigComplex {
     fn square(&self) -> Self {
