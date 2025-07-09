@@ -49,6 +49,7 @@ macro_rules! delegate_layer_implementation {
 
 /// An implementation of a layering algorithm.
 #[repr(u8)]
+#[derive(Clone)]
 pub enum LayerImplementation {
     Colour(ColourAlgorithm),
     OrbitTrap(OrbitTrapAlgorithm),
@@ -88,6 +89,7 @@ impl LayerAlgorithm for LayerImplementation {
 
 /// Simple smooth colouring algorithm tracking the number of iterations a point takes to diverge, and returning
 /// the smoothed iteration value.
+#[derive(Clone, Copy)]
 pub struct ColourAlgorithm {
     output: f64,
 }
@@ -131,6 +133,7 @@ impl LayerAlgorithm for ColourAlgorithm {
 
 /// Orbit trap algorithm looking at the minimum distance between an orbit and an orbit trap,
 /// calculating a trapped index to be used in the palette.
+#[derive(Clone)]
 pub struct OrbitTrapAlgorithm {
     output: f64,
     min_distance2: f64,
@@ -214,6 +217,7 @@ impl LayerAlgorithm for OrbitTrapAlgorithm {
 /// 3d algorithm to shade the set to give height.
 /// Theory from: https://www.math.univ-toulouse.fr/~cheritat/wiki-draw/index.php/Mandelbrot_set#Normal_map_effect,
 /// calculating a t value that represents darkness/brightness.
+#[derive(Clone)]
 pub struct Shading3DAlgorithm {
     output: f64,
     v: Complex,
@@ -295,6 +299,7 @@ impl LayerAlgorithm for Shading3DAlgorithm {
 }
 
 /// Triangle inequality algorithm
+#[derive(Clone)]
 pub struct TriangleInequalityAlgorithm {}
 impl TriangleInequalityAlgorithm {
     pub fn new() -> Self {

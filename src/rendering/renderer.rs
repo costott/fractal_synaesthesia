@@ -8,7 +8,7 @@ use threadpool::ThreadPool;
 
 use crate::rendering::{
     algorithms::render_algorithms::{FractalParams, ReferenceOrbit},
-    manager::layer_renderer::LayerRenderer,
+    manager::layers_renderer::LayersRenderer,
     render_task::{RenderTask, TaskRegion},
 };
 
@@ -19,7 +19,7 @@ pub struct Renderer {
 impl Renderer {
     pub fn new() -> Self {
         Self {
-            thread_pool: ThreadPool::new(num_cpus::get() - 1),
+            thread_pool: ThreadPool::new(num_cpus::get_physical() - 1),
             cancel_render: Arc::new(AtomicBool::new(false)),
         }
     }
@@ -27,7 +27,7 @@ impl Renderer {
     pub fn spawn_render_tasks(
         &self,
         image: Arc<Mutex<Image>>,
-        layer_renderer: Arc<Mutex<LayerRenderer>>,
+        layer_renderer: &LayersRenderer,
         fractal_params: Arc<Mutex<FractalParams>>,
         reference_orbit: Arc<ReferenceOrbit>,
     ) {
@@ -35,9 +35,9 @@ impl Renderer {
 
         for t in 0..threads {
             let render_task = Arc::new(RenderTask {
-                layer_renderer: Arc::clone(&layer_renderer),
+                layer_renderer: layer_renderer.clone(),
                 reference_orbit: Arc::clone(&reference_orbit),
-                fractal_params: Arc::clone(&fractal_params),
+                fractal_params: fractal_params.lock().unwrap().clone(),
                 cancel_render: Arc::clone(&self.cancel_render),
             });
             let image = Arc::clone(&image);
@@ -47,7 +47,7 @@ impl Renderer {
                 let mut thread_height = image_height / threads;
                 // account for excess on last thread
                 if t == threads - 1 {
-                    thread_height = image_height - t * thread_height;
+                    thread_height = image_height - t * thread_height - 1;
                 }
 
                 let image_width = image.lock().unwrap().width();

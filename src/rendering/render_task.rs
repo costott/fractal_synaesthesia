@@ -8,7 +8,7 @@ use macroquad::prelude::Color;
 use crate::{
     rendering::{
         algorithms::render_algorithms::{FractalParams, ReferenceOrbit},
-        manager::layer_renderer::LayerRenderer,
+        manager::layers_renderer::LayersRenderer,
     },
     types::Complex,
 };
@@ -33,9 +33,9 @@ impl TaskRegion {
 
 /// Manages rendering in a given region for a thread
 pub struct RenderTask {
-    pub layer_renderer: Arc<Mutex<LayerRenderer>>,
+    pub layer_renderer: LayersRenderer,
     pub reference_orbit: Arc<ReferenceOrbit>,
-    pub fractal_params: Arc<Mutex<FractalParams>>,
+    pub fractal_params: FractalParams,
     pub cancel_render: Arc<AtomicBool>,
 }
 impl RenderTask {
@@ -51,19 +51,18 @@ impl RenderTask {
     {
         for y in region.start_y..=region.end_y {
             for x in region.start_x..=region.end_x {
-                let params = self.fractal_params.lock().unwrap();
+                let params = &self.fractal_params;
                 let pixel_step = params.pixel_step;
                 let fractal = Arc::clone(&params.fractal);
                 let max_iterations = params.max_iterations;
                 let bailout2 = params.bailout2;
-                drop(params);
 
                 let dc = Complex::new(
                     -(image_width / 2.0 - x as f64) * pixel_step,
                     (image_height / 2.0 - y as f64) * pixel_step,
                 );
 
-                let colour = match self.layer_renderer.lock().unwrap().render_pixel(
+                let colour = match self.layer_renderer.render_pixel(
                     &fractal,
                     dc,
                     &self.reference_orbit,
