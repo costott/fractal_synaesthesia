@@ -329,6 +329,16 @@ impl Add for Complex {
         }
     }
 }
+impl Add<f64> for Complex {
+    type Output = Complex;
+
+    fn add(self, rhs: f64) -> Self::Output {
+        Complex {
+            real: self.real + rhs,
+            im: self.im,
+        }
+    }
+}
 impl Sub for Complex {
     type Output = Complex;
 
@@ -336,6 +346,16 @@ impl Sub for Complex {
         Complex {
             real: self.real - rhs.real,
             im: self.im - rhs.im,
+        }
+    }
+}
+impl Sub<f64> for Complex {
+    type Output = Complex;
+
+    fn sub(self, rhs: f64) -> Self::Output {
+        Complex {
+            real: self.real - rhs,
+            im: self.im,
         }
     }
 }

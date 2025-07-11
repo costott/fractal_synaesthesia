@@ -29,6 +29,7 @@ pub trait LayerAlgorithm {
     fn in_set_big(&mut self, z: &BigComplex);
 
     /// Returns the specific output value for this algorithm.
+    /// Technically an iteration value betweeen [0, max_iterations)
     fn get_output(&self) -> f64;
 }
 
@@ -40,7 +41,8 @@ macro_rules! delegate_layer_implementation {
             LayerImplementation::Colour(algorithm) => algorithm.$method($($arg),*),
             LayerImplementation::OrbitTrap(algorithm) => algorithm.$method($($arg),*),
             LayerImplementation::Shading3D(algorithm) => algorithm.$method($($arg),*),
-            // LayerImplementation::TriangleInequality(algorithm) => algorithm.$method($($arg),*),
+            LayerImplementation::TriangleInequality(algorithm) => algorithm.$method($($arg),*),
+            LayerImplementation::StripeAverage(algorithm) => algorithm.$method($($arg),*),
             #[allow(unreachable_patterns)]
             _ => unreachable!("New variant added but not handled")
         }
@@ -49,12 +51,13 @@ macro_rules! delegate_layer_implementation {
 
 /// An implementation of a layering algorithm.
 #[repr(u8)]
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum LayerImplementation {
     Colour(ColourAlgorithm),
     OrbitTrap(OrbitTrapAlgorithm),
     Shading3D(Shading3DAlgorithm),
     TriangleInequality(TriangleInequalityAlgorithm),
+    StripeAverage(StripeAverageAlgorithm),
 }
 impl LayerAlgorithm for LayerImplementation {
     fn before(&mut self, max_iterations: u32, bailout2: f64) {
@@ -89,7 +92,7 @@ impl LayerAlgorithm for LayerImplementation {
 
 /// Simple smooth colouring algorithm tracking the number of iterations a point takes to diverge, and returning
 /// the smoothed iteration value.
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct ColourAlgorithm {
     output: f64,
 }
@@ -100,7 +103,7 @@ impl ColourAlgorithm {
 
     fn out_set(&mut self, abs2_z: f64, i: u32) {
         // Perform smooth iteration algorithm
-        let log_zmod = f64::log2(abs2_z) / 2.0;
+        let log_zmod = f64::log2(abs2_z) * 0.5;
         let nu = f64::log2(log_zmod);
         let smooth_iteration = i as f64 + 1.0 - nu;
         self.output = smooth_iteration;
@@ -133,7 +136,7 @@ impl LayerAlgorithm for ColourAlgorithm {
 
 /// Orbit trap algorithm looking at the minimum distance between an orbit and an orbit trap,
 /// calculating a trapped index to be used in the palette.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct OrbitTrapAlgorithm {
     output: f64,
     min_distance2: f64,
@@ -217,7 +220,7 @@ impl LayerAlgorithm for OrbitTrapAlgorithm {
 /// 3d algorithm to shade the set to give height.
 /// Theory from: https://www.math.univ-toulouse.fr/~cheritat/wiki-draw/index.php/Mandelbrot_set#Normal_map_effect,
 /// calculating a t value that represents darkness/brightness.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Shading3DAlgorithm {
     output: f64,
     v: Complex,
@@ -229,7 +232,7 @@ pub struct Shading3DAlgorithm {
 }
 impl Shading3DAlgorithm {
     const H2: f64 = 1.5;
-    const ANGLE: f64 = -45.0;
+    const ANGLE: f64 = 45.0;
 
     pub fn new() -> Self {
         Self {
@@ -255,7 +258,7 @@ impl Shading3DAlgorithm {
         let t = u.real * self.v.real + u.im * self.v.im;
         let mut t = t + Self::H2;
         t = t / (1. + Self::H2);
-        t = f64::max(0.1, t);
+        t = f64::max(0.0, t);
         t
     }
 
@@ -265,7 +268,7 @@ impl Shading3DAlgorithm {
         let t = u.real_f64() * self.v_big.real_f64() + u.im_f64() * self.v_big.im_f64();
         let mut t = t + Self::H2;
         t = t / (1. + Self::H2);
-        t = f64::max(0.1, t);
+        t = f64::max(0.0, t);
         t
     }
 }
@@ -298,12 +301,199 @@ impl LayerAlgorithm for Shading3DAlgorithm {
     }
 }
 
-/// Triangle inequality algorithm
-#[derive(Clone)]
-pub struct TriangleInequalityAlgorithm {}
+/// Triangle inequality algorithm https://en.wikibooks.org/wiki/Fractals/Iterations_in_the_complex_plane/triangle_ineq
+#[derive(Clone, Debug)]
+pub struct TriangleInequalityAlgorithm {
+    max_iter: u32,
+    sum: f64,
+    sum2: f64,
+    ac: f64,
+    lp: f64,
+    ipower: f64,
+    first_double: Option<Complex>,
+    first_big: Option<BigComplex>,
+    output: f64,
+}
 impl TriangleInequalityAlgorithm {
+    /// Average power: skews values averaged by raising them to this power.
+    const APOWER: f64 = 1.0;
+
     pub fn new() -> Self {
-        Self {}
+        Self {
+            max_iter: Default::default(),
+            sum: 0.0,
+            sum2: 0.0,
+            ac: Default::default(),
+            lp: Default::default(),
+            ipower: 1.0 / Self::APOWER,
+            first_double: None,
+            first_big: None,
+            output: 0.0,
+        }
+    }
+
+    fn get_output_double(&mut self, z: Complex, i: u32) -> f64 {
+        self.sum = self.sum / i as f64;
+        self.sum2 = self.sum2 / (i - 1) as f64;
+        let f = 1.0 * self.lp - 1.0 * f64::log2(f64::log2(z.abs_squared()) * 0.5);
+        let i_frac = self.sum2 + (self.sum - self.sum2) * (f + 1.0);
+        i_frac * self.max_iter as f64
+    }
+
+    fn get_output_big(&mut self, z: &BigComplex, i: u32) -> f64 {
+        self.sum = self.sum / i as f64;
+        self.sum2 = self.sum2 / (i - 1) as f64;
+        let f = 1.0 * self.lp - 1.0 * f64::log2(f64::log2(z.abs_squared()) * 0.5);
+        let i_frac = self.sum2 + (self.sum - self.sum2) * (f + 1.0);
+        i_frac * self.max_iter as f64
     }
 }
-// impl LayerAlgorithm for TriangleInequalityAlgorithm {}
+impl LayerAlgorithm for TriangleInequalityAlgorithm {
+    fn before(&mut self, max_iterations: u32, bailout2: f64) {
+        self.max_iter = max_iterations;
+        // log(log(bailout) / 2)) = log(log(bailout^2) / 4)
+        self.lp = f64::log2(f64::log2(bailout2) * 0.25)
+    }
+
+    fn during_double(&mut self, z: Complex, _i: u32) {
+        self.sum2 = self.sum;
+        if let Some(z0) = self.first_double {
+            let az2 = (z - z0).abs_squared().sqrt();
+            let lowbound = (az2 - self.ac).abs();
+            let numerator = z.abs_squared().sqrt() - lowbound;
+            let denominator = az2 + self.ac - lowbound;
+
+            if denominator.abs() >= f64::EPSILON {
+                self.sum += (numerator / denominator).powf(self.ipower);
+            }
+        } else {
+            self.ac = z.abs_squared().sqrt();
+            self.first_double = Some(z)
+        }
+    }
+
+    fn during_big(&mut self, z: &BigComplex, _i: u32) {
+        self.sum2 = self.sum;
+        if let Some(z0) = &self.first_big {
+            let az2 = (z - &z0).abs_squared().sqrt();
+            let lowbound = (az2 - self.ac).abs();
+            self.sum += ((z.abs_squared().sqrt() - lowbound) / (az2 + self.ac - lowbound))
+                .powf(self.ipower);
+        } else {
+            self.ac = z.abs_squared().sqrt();
+            self.first_big = Some(z.clone())
+        }
+    }
+
+    fn out_set_double(&mut self, z: Complex, i: u32) {
+        self.output = self.get_output_double(z, i);
+    }
+
+    fn out_set_big(&mut self, z: &BigComplex, i: u32) {
+        self.output = self.get_output_big(z, i);
+    }
+
+    fn in_set_double(&mut self, z: Complex) {
+        self.output = self.get_output_double(z, self.max_iter - 1);
+    }
+
+    fn in_set_big(&mut self, z: &BigComplex) {
+        self.output = self.get_output_big(z, self.max_iter - 1);
+    }
+
+    fn get_output(&self) -> f64 {
+        self.output
+    }
+}
+
+/// Stripe average algorithm https://en.wikibooks.org/wiki/Fractals/Iterations_in_the_complex_plane/stripeAC
+/// with linear interpolation and skipped orbits
+#[derive(Clone, Debug)]
+pub struct StripeAverageAlgorithm {
+    /// Exclude all iterations less than or equal to this number (k)
+    skip_iteration: u32,
+    stripe_density: f64,
+    // t_{k+1} + t_{k+2} + ... + t_{n}
+    sum_tk: f64,
+    prev_sum_tk: f64,
+    max_iterations: u32,
+    ln_bailout: f64,
+    output: f64,
+}
+impl StripeAverageAlgorithm {
+    pub fn new(skip_iteration: u32, stripe_density: f64) -> Self {
+        Self {
+            skip_iteration,
+            stripe_density,
+            sum_tk: 0.0,
+            prev_sum_tk: Default::default(),
+            max_iterations: Default::default(),
+            ln_bailout: Default::default(),
+            output: 0.0,
+        }
+    }
+
+    /// t_n = t(z_n) = sin(s * arg(z_n))/2 + 1/2
+    fn attend_double(&self, z: Complex) -> f64 {
+        0.5 + f64::sin(self.stripe_density * z.arg()) * 0.5
+    }
+
+    fn attend_big(&self, z: &BigComplex) -> f64 {
+        0.5 + f64::sin(self.stripe_density + z.arg()) * 0.5
+    }
+
+    fn final_interpolated_a(&self, abs2_z: f64, i: u32) -> f64 {
+        // A_{n, k}
+        let avg_tk = self.sum_tk / (i - self.skip_iteration) as f64;
+        // A_{n, k-1}
+        let prev_avg_tk = self.prev_sum_tk / (i - self.skip_iteration - 1) as f64;
+
+        // smooth iteration count
+        let ln_zmod = f64::ln(abs2_z) * 0.5;
+        let d = (i + 1) as f64 + f64::ln(self.ln_bailout / ln_zmod) / 0.69314718055994530942;
+        let d = d % 1.0;
+
+        let i_frac = d * avg_tk + (1.0 - d) * prev_avg_tk;
+        i_frac * self.max_iterations as f64
+    }
+}
+impl LayerAlgorithm for StripeAverageAlgorithm {
+    fn before(&mut self, max_iterations: u32, bailout2: f64) {
+        self.max_iterations = max_iterations;
+        self.ln_bailout = f64::ln(bailout2) * 0.5;
+    }
+
+    fn during_double(&mut self, z: Complex, i: u32) {
+        if i > self.skip_iteration {
+            self.prev_sum_tk = self.sum_tk;
+            self.sum_tk += self.attend_double(z);
+        }
+    }
+
+    fn during_big(&mut self, z: &BigComplex, i: u32) {
+        if i > self.skip_iteration {
+            self.prev_sum_tk = self.sum_tk;
+            self.sum_tk += self.attend_big(z);
+        }
+    }
+
+    fn out_set_double(&mut self, z: Complex, i: u32) {
+        self.output = self.final_interpolated_a(z.abs_squared(), i);
+    }
+
+    fn out_set_big(&mut self, z: &BigComplex, i: u32) {
+        self.output = self.final_interpolated_a(z.abs_squared(), i);
+    }
+
+    fn in_set_double(&mut self, _z: Complex) {
+        self.output = 0.0;
+    }
+
+    fn in_set_big(&mut self, _z: &BigComplex) {
+        self.output = 0.0;
+    }
+
+    fn get_output(&self) -> f64 {
+        self.output
+    }
+}
