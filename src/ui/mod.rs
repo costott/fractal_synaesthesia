@@ -25,8 +25,8 @@ impl App {
             fractal: Arc::new(Fractal::Mandelbrot { power: 2 }),
             center: Arc::new(Mutex::new(BigComplex::from_f64s(-0.5, 0.0))),
             pixel_step: 0.005,
-            max_iterations: 1000,
-            bailout2: 4.5,
+            max_iterations: 500,
+            bailout2: 1e8,
         }));
 
         let dims = CanvasDimensions {

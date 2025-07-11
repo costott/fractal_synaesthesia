@@ -154,6 +154,10 @@ pub fn analyse_pixel(
             dz = z;
             ref_iteration = 0;
         }
+
+        for im in implementations.iter_mut() {
+            im.during_double(z, i);
+        }
     }
 
     // Point stayed bounded

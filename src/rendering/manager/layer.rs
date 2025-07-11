@@ -2,7 +2,7 @@ use crate::rendering::{
     algorithms::layer_algorithms::*,
     manager::layer_error::LayerError,
     orbit_trap::OrbitTrapType,
-    palette::{Palette, blend_colours},
+    palette::{Palette, blend_colours, interpolate_colour},
 };
 use macroquad::prelude::*;
 
@@ -43,15 +43,34 @@ impl Layer {
             return Ok(prev_colour);
         }
 
-        let this_colour = self
-            .palette
-            .get_colour_at_layer_output(implementator_output);
+        let this_colour = self.get_layer_colour(prev_colour, implementator_output)?;
 
         Ok(Some(blend_colours(
             prev_colour.unwrap_or(BLACK),
             this_colour,
             self.strength,
         )))
+    }
+
+    fn get_layer_colour(
+        &self,
+        prev_colour: Option<Color>,
+        implementator_output: f64,
+    ) -> Result<Color, LayerError> {
+        match self.algorithm.get_mapping_kind() {
+            LayerMappingKind::Shade => {
+                let previous = prev_colour
+                    .ok_or_else(|| LayerError::ShadingError("No base colour to shade".into()))?;
+                Ok(interpolate_colour(
+                    BLACK,
+                    previous,
+                    implementator_output as f32,
+                ))
+            }
+            LayerMappingKind::Blend => Ok(self
+                .palette
+                .get_colour_at_layer_output(implementator_output)),
+        }
     }
 }
 impl Default for Layer {
@@ -68,9 +87,15 @@ impl Default for Layer {
 /// The algorithm the layer uses.
 pub enum LayerAlgorithmKind {
     Colour,
-    OrbitTrap { trap: OrbitTrapType },
+    OrbitTrap {
+        trap: OrbitTrapType,
+    },
     Shading3D,
     TriangleInequality,
+    StripeAverageAlgorithm {
+        skip_iteration: u32,
+        stripe_density: f64,
+    },
 }
 impl LayerAlgorithmKind {
     /// Returns all the different types of implementations that are reusable.
@@ -85,9 +110,23 @@ impl LayerAlgorithmKind {
                 LayerImplementation::OrbitTrap(OrbitTrapAlgorithm::new((*trap).clone()))
             }
             Self::Shading3D => LayerImplementation::Shading3D(Shading3DAlgorithm::new()),
-            Self::TriangleInequality { .. } => {
+            Self::TriangleInequality => {
                 LayerImplementation::TriangleInequality(TriangleInequalityAlgorithm::new())
             }
+            Self::StripeAverageAlgorithm {
+                skip_iteration,
+                stripe_density,
+            } => LayerImplementation::StripeAverage(StripeAverageAlgorithm::new(
+                *skip_iteration,
+                *stripe_density,
+            )),
+        }
+    }
+
+    pub fn get_mapping_kind(&self) -> LayerMappingKind {
+        match self {
+            Self::Shading3D => LayerMappingKind::Shade,
+            _ => LayerMappingKind::Blend,
         }
     }
 }
@@ -110,12 +149,29 @@ impl PartialEq for LayerAlgorithmKind {
                 Self::TriangleInequality => true,
                 _ => false,
             },
+            Self::StripeAverageAlgorithm {
+                skip_iteration: si,
+                stripe_density: sd,
+            } => match other {
+                Self::StripeAverageAlgorithm {
+                    skip_iteration: o_si,
+                    stripe_density: o_sd,
+                } => si == o_si && sd == o_sd,
+                _ => false,
+            },
         }
     }
 }
 impl Eq for LayerAlgorithmKind {}
 
+#[repr(u8)]
+pub enum LayerMappingKind {
+    Blend,
+    Shade,
+}
+
 /// Specifies the range of the fractal set a layer is applied to.
+#[repr(u8)]
 pub enum LayerRange {
     /// Only points in the fractal set
     InSet,

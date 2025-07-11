@@ -6,7 +6,7 @@ use crate::types::*;
 
 /// Determines what metric will be used to analyse a point with the orbit trap.
 #[repr(u8)]
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum OrbitTrapAnalysis {
     Distance,
     Real,
@@ -58,7 +58,7 @@ macro_rules! delegate_orbit_trap_type {
 
 /// A wrapper around the different orbit trap types for disatching.
 #[repr(u8)]
-#[derive(PartialEq, Eq, Clone)]
+#[derive(PartialEq, Eq, Clone, Debug)]
 pub enum OrbitTrapType {
     Point(OrbitTrapPoint),
     Cross(OrbitTrapCross),
@@ -134,7 +134,7 @@ macro_rules! edit_orbit_trap {
 }
 
 /// An orbit trap which shape is a single point in the complex plane.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct OrbitTrapPoint {
     center: Complex,
     big_center: BigComplex,
@@ -188,7 +188,7 @@ impl PartialEq for OrbitTrapPoint {
 }
 impl Eq for OrbitTrapPoint {}
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct OrbitTrapCross {
     center: Complex,
     big_center: BigComplex,
@@ -279,7 +279,7 @@ impl PartialEq for OrbitTrapCross {
 }
 impl Eq for OrbitTrapCross {}
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct OrbitTrapCircle {
     center: Complex,
     big_center: BigComplex,
