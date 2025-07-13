@@ -55,7 +55,6 @@ impl RenderTask {
                 let pixel_step = params.pixel_step;
                 let fractal = Arc::clone(&params.fractal);
                 let max_iterations = params.max_iterations;
-                let bailout2 = params.bailout2;
 
                 let dc = Complex::new(
                     -(image_width / 2.0 - x as f64) * pixel_step,
@@ -67,7 +66,6 @@ impl RenderTask {
                     dc,
                     &self.reference_orbit,
                     max_iterations,
-                    bailout2,
                 ) {
                     Ok(c) => c,
                     Err(e) => {

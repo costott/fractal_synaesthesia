@@ -20,14 +20,22 @@ use crate::{
 pub struct LayersRenderer {
     manager: Arc<Mutex<LayerManager>>,
     start_implementations: Vec<LayerImplementation>,
+    pub max_bailout2: f64,
     implementation_map: Vec<usize>,
 }
 impl LayersRenderer {
     pub fn new(manager: Arc<Mutex<LayerManager>>) -> Self {
         let (implementations, implementation_map) = Self::get_implementations(&manager);
+        let max_bailout2 = implementations
+            .iter()
+            .map(|im| im.get_bailout2())
+            .reduce(f64::max)
+            .unwrap_or(0.0);
+
         Self {
             manager: Arc::clone(&manager),
             start_implementations: implementations,
+            max_bailout2,
             implementation_map,
         }
     }
@@ -44,33 +52,24 @@ impl LayersRenderer {
     ) -> (Vec<LayerImplementation>, Vec<usize>) {
         let manager = manager.lock().unwrap();
 
+        let mut kinds = Vec::new();
         let mut implementations = Vec::new();
         let mut implementation_map = Vec::with_capacity(manager.layers.len());
-
-        // Tracks if the reusable layerimplementaion for the layeralgorithmkind is already in the implementations
-        let mut reusables_registry: Vec<(LayerAlgorithmKind, Option<usize>)> =
-            LayerAlgorithmKind::reusable_variants()
-                .into_iter()
-                .map(|kind| (kind, None))
-                .collect();
 
         for layer in &manager.layers {
             let mut index_opt = None;
 
-            for (kind, cached_index) in &mut reusables_registry {
+            // Check if we can use a previous implementation
+            for (idx, kind) in kinds.iter().enumerate() {
                 if *kind == layer.algorithm {
-                    index_opt = Some(cached_index.unwrap_or_else(|| {
-                        let idx = implementations.len();
-                        implementations.push(layer.algorithm.get_new_implementation());
-                        *cached_index = Some(idx);
-                        idx
-                    }));
+                    index_opt = Some(idx);
                     break;
                 }
             }
 
-            // if no index, not a reusable
+            // if no index, not used before
             let index = index_opt.unwrap_or_else(|| {
+                kinds.push(layer.algorithm.clone());
                 implementations.push(layer.algorithm.get_new_implementation());
                 implementations.len() - 1
             });
@@ -88,32 +87,31 @@ impl LayersRenderer {
         pixel_dc: Complex,
         reference_orbit: &Arc<ReferenceOrbit>,
         max_iterations: u32,
-        bailout2: f64,
     ) -> Result<Color, LayerError> {
         let mut this_implementations = self.start_implementations.clone();
 
-        let in_set = analyse_pixel(
+        analyse_pixel(
             fractal,
             pixel_dc,
             reference_orbit,
             max_iterations,
-            bailout2,
+            self.max_bailout2,
             &mut this_implementations,
         );
 
-        self.colour_pixel(in_set, &this_implementations)
+        self.colour_pixel(&this_implementations)
     }
 
     /// After determining the implementations' outputs, use it to colour the pixel by passing through all layers.
     fn colour_pixel(
         &self,
-        in_set: bool,
         implementations: &Vec<LayerImplementation>,
     ) -> Result<Color, LayerError> {
         let mut colour: Option<Color> = None;
         for (i, layer) in self.manager.lock().unwrap().layers.iter().enumerate() {
-            let output = implementations[self.implementation_map[i]].get_output();
-            colour = layer.determine_colour(colour, output, in_set)?;
+            let implementation = &implementations[self.implementation_map[i]];
+            let output = implementation.get_output();
+            colour = layer.determine_colour(colour, output, implementation.get_in_set())?;
         }
 
         Ok(colour.unwrap_or(BLACK))

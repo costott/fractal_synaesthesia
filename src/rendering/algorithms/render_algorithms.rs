@@ -39,7 +39,6 @@ pub struct FractalParams {
     pub center: Arc<Mutex<BigComplex>>,
     pub pixel_step: f64,
     pub max_iterations: u32,
-    pub bailout2: f64,
 }
 
 pub struct ReferenceOrbit {
@@ -49,7 +48,7 @@ pub struct ReferenceOrbit {
     pub max_ref_iteration: usize,
 }
 impl ReferenceOrbit {
-    pub fn new(fractal_params: &Arc<Mutex<FractalParams>>) -> ReferenceOrbit {
+    pub fn new(fractal_params: &Arc<Mutex<FractalParams>>, max_bailout2: f64) -> ReferenceOrbit {
         let params = fractal_params.lock().unwrap();
 
         let mut ref_z: Vec<Complex> = Vec::with_capacity(params.max_iterations as usize);
@@ -58,7 +57,7 @@ impl ReferenceOrbit {
         let mut z = BigComplex::from_f64s(0., 0.);
         for i in 0..params.max_iterations {
             ref_z.push(z.as_complex());
-            if z.abs_squared() < params.bailout2 {
+            if z.abs_squared() < max_bailout2 {
                 params
                     .fractal
                     .iterate_big(&mut z, &params.center.lock().unwrap());
@@ -112,18 +111,14 @@ impl ReferenceOrbit {
 /// * `dc` - A [`Complex`] number representing the vector between the
 /// reference orbit point (centre of screen) and the pixel to analyse.
 /// * `implementations` - The list of layering algorithms to run while analysing this pixel.
-///
-/// # Returns
-///
-/// Whether or not this point is in the fractal set or not.
 pub fn analyse_pixel(
     fractal: &Arc<Fractal>,
     dc: Complex,
     reference_orbit: &Arc<ReferenceOrbit>,
     max_iterations: u32,
-    bailout2: f64,
+    max_bailout2: f64,
     implementations: &mut Vec<LayerImplementation>,
-) -> bool {
+) {
     // Uses this reference orbit method:
     // https://fractalforums.org/index.php?topic=4360.msg29835#msg29835
 
@@ -131,7 +126,7 @@ pub fn analyse_pixel(
     let mut ref_iteration = 0;
 
     for im in implementations.iter_mut() {
-        im.before(max_iterations, bailout2);
+        im.before(max_iterations);
     }
 
     for i in 0..max_iterations {
@@ -140,17 +135,21 @@ pub fn analyse_pixel(
 
         let z = reference_orbit.ref_z[ref_iteration] + dz;
 
-        // Point escaped
-        if z.abs_squared() > bailout2 {
-            for im in implementations.iter_mut() {
+        // Point escaped a layer
+        let mod_z = z.abs_squared();
+        for im in implementations.iter_mut() {
+            if mod_z > im.get_bailout2() {
                 im.out_set_double(z, i);
             }
-            return false;
+        }
+
+        // Point fully escaped all layers
+        if mod_z > max_bailout2 {
+            return;
         }
 
         // Rebase |z + dz| < |dz|
-        if z.abs_squared() < dz.abs_squared() || ref_iteration == reference_orbit.max_ref_iteration
-        {
+        if mod_z < dz.abs_squared() || ref_iteration == reference_orbit.max_ref_iteration {
             dz = z;
             ref_iteration = 0;
         }
@@ -164,6 +163,4 @@ pub fn analyse_pixel(
     for im in implementations.iter_mut() {
         im.in_set_double(reference_orbit.ref_z[ref_iteration] + dz);
     }
-
-    true
 }
