@@ -48,12 +48,15 @@ impl FractalVisualiser {
                         0.3,
                     ),
                 ),
-                // Layer::new(
-                //     LayerAlgorithmKind::Shading3D,
-                //     LayerRange::OutSet,
-                //     0.8,
-                //     Palette::default(),
-                // ),
+                Layer::new(
+                    LayerAlgorithmKind::Shading3D {
+                        h2: 1.5,
+                        angle: 45.0,
+                    },
+                    LayerRange::OutSet,
+                    0.8,
+                    Palette::default(),
+                ),
             ],
             true,
         )));
@@ -64,7 +67,7 @@ impl FractalVisualiser {
             .generate_palettes(params.lock().unwrap().max_iterations as f32);
         let layer_renderer = LayersRenderer::new(Arc::clone(&layer_manager));
         // TEMP
-        let reference_orbit = Arc::new(ReferenceOrbit::new(params));
+        let reference_orbit = Arc::new(ReferenceOrbit::new(params, layer_renderer.max_bailout2));
         let canvas = FractalCanvas::new(canvas_dims);
 
         Self {
@@ -80,7 +83,10 @@ impl FractalVisualiser {
     }
 
     pub fn update_render(&mut self, params: &Arc<Mutex<FractalParams>>) {
-        self.reference_orbit = Arc::new(ReferenceOrbit::new(params));
+        self.reference_orbit = Arc::new(ReferenceOrbit::new(
+            params,
+            self.layer_renderer.max_bailout2,
+        ));
         self.canvas.update_render(
             &self.layer_renderer,
             Arc::clone(&params),

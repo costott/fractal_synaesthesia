@@ -85,33 +85,36 @@ impl Default for Layer {
 }
 
 /// The algorithm the layer uses.
+#[derive(Clone, PartialEq)]
 pub enum LayerAlgorithmKind {
     Colour,
     OrbitTrap {
         trap: OrbitTrapType,
     },
-    Shading3D,
-    TriangleInequality,
+    Shading3D {
+        h2: f64,
+        angle: f64,
+    },
+    TriangleInequality {
+        apower: f64,
+    },
     StripeAverageAlgorithm {
         skip_iteration: u32,
         stripe_density: f64,
     },
 }
 impl LayerAlgorithmKind {
-    /// Returns all the different types of implementations that are reusable.
-    pub fn reusable_variants() -> [Self; 3] {
-        [Self::Colour, Self::Shading3D, Self::TriangleInequality]
-    }
-
     pub fn get_new_implementation(&self) -> LayerImplementation {
         match self {
             Self::Colour => LayerImplementation::Colour(ColourAlgorithm::new()),
             Self::OrbitTrap { trap, .. } => {
                 LayerImplementation::OrbitTrap(OrbitTrapAlgorithm::new((*trap).clone()))
             }
-            Self::Shading3D => LayerImplementation::Shading3D(Shading3DAlgorithm::new()),
-            Self::TriangleInequality => {
-                LayerImplementation::TriangleInequality(TriangleInequalityAlgorithm::new())
+            Self::Shading3D { h2, angle } => {
+                LayerImplementation::Shading3D(Shading3DAlgorithm::new(*h2, *angle))
+            }
+            Self::TriangleInequality { apower } => {
+                LayerImplementation::TriangleInequality(TriangleInequalityAlgorithm::new(*apower))
             }
             Self::StripeAverageAlgorithm {
                 skip_iteration,
@@ -125,44 +128,11 @@ impl LayerAlgorithmKind {
 
     pub fn get_mapping_kind(&self) -> LayerMappingKind {
         match self {
-            Self::Shading3D => LayerMappingKind::Shade,
+            Self::Shading3D { .. } => LayerMappingKind::Shade,
             _ => LayerMappingKind::Blend,
         }
     }
 }
-impl PartialEq for LayerAlgorithmKind {
-    fn eq(&self, other: &Self) -> bool {
-        match self {
-            Self::Colour => match other {
-                Self::Colour => true,
-                _ => false,
-            },
-            Self::OrbitTrap { trap } => match other {
-                Self::OrbitTrap { trap: other_trap } => *trap == *other_trap,
-                _ => false,
-            },
-            Self::Shading3D => match other {
-                Self::Shading3D => true,
-                _ => false,
-            },
-            Self::TriangleInequality => match other {
-                Self::TriangleInequality => true,
-                _ => false,
-            },
-            Self::StripeAverageAlgorithm {
-                skip_iteration: si,
-                stripe_density: sd,
-            } => match other {
-                Self::StripeAverageAlgorithm {
-                    skip_iteration: o_si,
-                    stripe_density: o_sd,
-                } => si == o_si && sd == o_sd,
-                _ => false,
-            },
-        }
-    }
-}
-impl Eq for LayerAlgorithmKind {}
 
 #[repr(u8)]
 pub enum LayerMappingKind {

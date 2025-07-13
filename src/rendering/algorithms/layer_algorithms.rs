@@ -1,11 +1,14 @@
 /// Layering algorithms that can be run while analysing a point/pixel.
 use crate::{rendering::orbit_trap::*, types::*};
-use std::f64::consts::PI;
+use std::{default, f64::consts::PI};
 
 /// Operations algorithms should perform while analysing a point/pixel.
 pub trait LayerAlgorithm {
+    /// Returns the squared bailout radius for this layer
+    fn get_bailout2(&self) -> f64;
+
     /// What needs to happen before iterations start for a given pixel.
-    fn before(&mut self, max_iterations: u32, bailout2: f64);
+    fn before(&mut self, max_iterations: u32);
 
     /// What needs to happen each iteration, before the next z is calculated
     /// for double precision.
@@ -31,6 +34,9 @@ pub trait LayerAlgorithm {
     /// Returns the specific output value for this algorithm.
     /// Technically an iteration value betweeen [0, max_iterations)
     fn get_output(&self) -> f64;
+
+    /// Returns whether the algorithm analysed that the point was in the fractal set or not.
+    fn get_in_set(&self) -> bool;
 }
 
 // Done instead of box(dyn ...) for better cache locality, memory utilisation, and performance.
@@ -49,6 +55,20 @@ macro_rules! delegate_layer_implementation {
     }
 }
 
+macro_rules! delegate_in_set {
+    ($self:ident, $bool:expr) => {
+        match $self {
+            LayerImplementation::Colour(algorithm) => algorithm.in_set = $bool,
+            LayerImplementation::OrbitTrap(algorithm) => algorithm.in_set = $bool,
+            LayerImplementation::Shading3D(algorithm) => algorithm.in_set = $bool,
+            LayerImplementation::TriangleInequality(algorithm) => algorithm.in_set = $bool,
+            LayerImplementation::StripeAverage(algorithm) => algorithm.in_set = $bool,
+            #[allow(unreachable_patterns)]
+            _ => unreachable!("New variant added but not handled"),
+        }
+    };
+}
+
 /// An implementation of a layering algorithm.
 #[repr(u8)]
 #[derive(Clone, Debug)]
@@ -60,8 +80,12 @@ pub enum LayerImplementation {
     StripeAverage(StripeAverageAlgorithm),
 }
 impl LayerAlgorithm for LayerImplementation {
-    fn before(&mut self, max_iterations: u32, bailout2: f64) {
-        delegate_layer_implementation!(self.before(max_iterations, bailout2))
+    fn get_bailout2(&self) -> f64 {
+        delegate_layer_implementation!(self.get_bailout2())
+    }
+
+    fn before(&mut self, max_iterations: u32) {
+        delegate_layer_implementation!(self.before(max_iterations))
     }
 
     fn during_double(&mut self, z: Complex, i: u32) {
@@ -72,21 +96,29 @@ impl LayerAlgorithm for LayerImplementation {
     }
 
     fn out_set_double(&mut self, z: Complex, i: u32) {
-        delegate_layer_implementation!(self.out_set_double(z, i))
+        delegate_layer_implementation!(self.out_set_double(z, i));
+        delegate_in_set!(self, false);
     }
     fn out_set_big(&mut self, z: &BigComplex, i: u32) {
-        delegate_layer_implementation!(self.out_set_big(z, i))
+        delegate_layer_implementation!(self.out_set_big(z, i));
+        delegate_in_set!(self, false);
     }
 
     fn in_set_double(&mut self, z: Complex) {
-        delegate_layer_implementation!(self.in_set_double(z))
+        delegate_layer_implementation!(self.in_set_double(z));
+        delegate_in_set!(self, true);
     }
     fn in_set_big(&mut self, z: &BigComplex) {
-        delegate_layer_implementation!(self.in_set_big(z))
+        delegate_layer_implementation!(self.in_set_big(z));
+        delegate_in_set!(self, true);
     }
 
     fn get_output(&self) -> f64 {
         delegate_layer_implementation!(self.get_output())
+    }
+
+    fn get_in_set(&self) -> bool {
+        delegate_layer_implementation!(self.get_in_set())
     }
 }
 
@@ -94,11 +126,24 @@ impl LayerAlgorithm for LayerImplementation {
 /// the smoothed iteration value.
 #[derive(Clone, Copy, Debug)]
 pub struct ColourAlgorithm {
+    bailout2: f64,
     output: f64,
+    in_set: bool,
 }
 impl ColourAlgorithm {
+    fn factory(bailout2: f64) -> Self {
+        Self {
+            bailout2,
+            output: 0.0,
+            in_set: false,
+        }
+    }
+
     pub fn new() -> Self {
-        Self { output: 0.0 }
+        Self {
+            output: 0.0,
+            ..Default::default()
+        }
     }
 
     fn out_set(&mut self, abs2_z: f64, i: u32) {
@@ -110,7 +155,11 @@ impl ColourAlgorithm {
     }
 }
 impl LayerAlgorithm for ColourAlgorithm {
-    fn before(&mut self, _max_iterations: u32, _bailout2: f64) {}
+    fn get_bailout2(&self) -> f64 {
+        self.bailout2
+    }
+
+    fn before(&mut self, _max_iterations: u32) {}
 
     fn during_double(&mut self, _z: Complex, _i: u32) {}
     fn during_big(&mut self, _z: &BigComplex, _i: u32) {}
@@ -132,30 +181,49 @@ impl LayerAlgorithm for ColourAlgorithm {
     fn get_output(&self) -> f64 {
         self.output
     }
+
+    fn get_in_set(&self) -> bool {
+        self.in_set
+    }
+}
+impl Default for ColourAlgorithm {
+    fn default() -> Self {
+        Self::factory(10.)
+    }
 }
 
 /// Orbit trap algorithm looking at the minimum distance between an orbit and an orbit trap,
 /// calculating a trapped index to be used in the palette.
 #[derive(Clone, Debug)]
 pub struct OrbitTrapAlgorithm {
-    output: f64,
+    bailout2: f64,
     min_distance2: f64,
     divisor: f64,
     trap: OrbitTrapType,
     /// 'vector' of closest point to the trap
     closest_to_trap: Complex,
     closest_to_trap_big: BigComplex,
+    output: f64,
+    in_set: bool,
 }
 impl OrbitTrapAlgorithm {
-    pub fn new(trap: OrbitTrapType) -> Self {
+    const DEFAULT_BAILOUT2: f64 = 4.5;
+
+    fn factory(trap: OrbitTrapType, bailout2: f64) -> Self {
         Self {
-            output: 0.0,
+            bailout2,
             min_distance2: f64::INFINITY,
             divisor: 0.0,
             trap,
             closest_to_trap: Complex::new(0.0, 0.0),
             closest_to_trap_big: BigComplex::from_f64s(0.0, 0.0),
+            output: 0.0,
+            in_set: false,
         }
+    }
+
+    pub fn new(trap: OrbitTrapType) -> Self {
+        Self::factory(trap, Self::DEFAULT_BAILOUT2)
     }
 
     fn generate_output_double(&self) -> f64 {
@@ -178,8 +246,12 @@ impl OrbitTrapAlgorithm {
     }
 }
 impl LayerAlgorithm for OrbitTrapAlgorithm {
-    fn before(&mut self, max_iterations: u32, bailout2: f64) {
-        self.min_distance2 = self.trap.greatest_distance2(bailout2);
+    fn get_bailout2(&self) -> f64 {
+        self.bailout2
+    }
+
+    fn before(&mut self, max_iterations: u32) {
+        self.min_distance2 = self.trap.greatest_distance2(self.bailout2);
         self.divisor = self.min_distance2.sqrt() / max_iterations as f64;
     }
 
@@ -200,9 +272,11 @@ impl LayerAlgorithm for OrbitTrapAlgorithm {
 
     fn out_set_double(&mut self, _z: Complex, _i: u32) {
         self.output = self.generate_output_double();
+        self.in_set = false;
     }
     fn out_set_big(&mut self, _z: &BigComplex, _i: u32) {
         self.output = self.generate_output_big();
+        self.in_set = false;
     }
 
     fn in_set_double(&mut self, _z: Complex) {
@@ -215,6 +289,18 @@ impl LayerAlgorithm for OrbitTrapAlgorithm {
     fn get_output(&self) -> f64 {
         self.output
     }
+
+    fn get_in_set(&self) -> bool {
+        self.in_set
+    }
+}
+impl Default for OrbitTrapAlgorithm {
+    fn default() -> Self {
+        Self::factory(
+            OrbitTrapType::Point(OrbitTrapPoint::default()),
+            Self::DEFAULT_BAILOUT2,
+        )
+    }
 }
 
 /// 3d algorithm to shade the set to give height.
@@ -222,42 +308,50 @@ impl LayerAlgorithm for OrbitTrapAlgorithm {
 /// calculating a t value that represents darkness/brightness.
 #[derive(Clone, Debug)]
 pub struct Shading3DAlgorithm {
-    output: f64,
+    bailout2: f64,
+    h2: f64,
     v: Complex,
     v_big: BigComplex,
     der: Complex,
     der_big: BigComplex,
     dc: Complex,
     dc_big: BigComplex,
+    output: f64,
+    in_set: bool,
 }
 impl Shading3DAlgorithm {
-    const H2: f64 = 1.5;
-    const ANGLE: f64 = 45.0;
+    const DEFAULT_H2: f64 = 1.5;
+    const DEFAULT_ANGLE: f64 = 45.0;
+    const DEFAULT_BAILOUT2: f64 = 1e8;
 
-    pub fn new() -> Self {
+    fn factory(h2: f64, angle: f64, bailout2: f64) -> Self {
         Self {
-            output: 0.0,
-            v: Complex::new(
-                f64::cos(Self::ANGLE * (PI / 180.)),
-                f64::sin(Self::ANGLE * (PI / 180.)),
-            ),
+            bailout2,
+            h2,
+            v: Complex::new(f64::cos(angle * (PI / 180.)), f64::sin(angle * (PI / 180.))),
             v_big: BigComplex::from_f64s(
-                f64::cos(Self::ANGLE * (PI / 180.)),
-                f64::sin(Self::ANGLE * (PI / 180.)),
+                f64::cos(angle * (PI / 180.)),
+                f64::sin(angle * (PI / 180.)),
             ),
             der: Complex::new(1., 0.),
             der_big: BigComplex::from_f64s(1., 0.),
             dc: Complex::new(1., 0.),
             dc_big: BigComplex::from_f64s(1., 0.),
+            output: 0.0,
+            in_set: false,
         }
+    }
+
+    pub fn new(h2: f64, angle: f64) -> Self {
+        Self::factory(h2, angle, Self::DEFAULT_BAILOUT2)
     }
 
     fn generate_output_double(&self, z: Complex) -> f64 {
         let mut u = z / self.der;
         u = &u / f64::sqrt(u.abs_squared());
         let t = u.real * self.v.real + u.im * self.v.im;
-        let mut t = t + Self::H2;
-        t = t / (1. + Self::H2);
+        let mut t = t + self.h2;
+        t = t / (1. + self.h2);
         t = f64::max(0.0, t);
         t
     }
@@ -266,14 +360,18 @@ impl Shading3DAlgorithm {
         let mut u = z / &self.der_big;
         u = &u / f64::sqrt(u.abs_squared());
         let t = u.real_f64() * self.v_big.real_f64() + u.im_f64() * self.v_big.im_f64();
-        let mut t = t + Self::H2;
-        t = t / (1. + Self::H2);
+        let mut t = t + self.h2;
+        t = t / (1. + self.h2);
         t = f64::max(0.0, t);
         t
     }
 }
 impl LayerAlgorithm for Shading3DAlgorithm {
-    fn before(&mut self, _max_iterations: u32, _bailout2: f64) {}
+    fn get_bailout2(&self) -> f64 {
+        self.bailout2
+    }
+
+    fn before(&mut self, _max_iterations: u32) {}
 
     fn during_double(&mut self, z: Complex, _i: u32) {
         self.der = self.der * (z * 2.) + self.dc;
@@ -299,11 +397,25 @@ impl LayerAlgorithm for Shading3DAlgorithm {
     fn get_output(&self) -> f64 {
         self.output
     }
+
+    fn get_in_set(&self) -> bool {
+        self.in_set
+    }
+}
+impl Default for Shading3DAlgorithm {
+    fn default() -> Self {
+        Self::factory(
+            Self::DEFAULT_H2,
+            Self::DEFAULT_ANGLE,
+            Self::DEFAULT_BAILOUT2,
+        )
+    }
 }
 
 /// Triangle inequality algorithm https://en.wikibooks.org/wiki/Fractals/Iterations_in_the_complex_plane/triangle_ineq
 #[derive(Clone, Debug)]
 pub struct TriangleInequalityAlgorithm {
+    bailout2: f64,
     max_iter: u32,
     sum: f64,
     sum2: f64,
@@ -313,23 +425,31 @@ pub struct TriangleInequalityAlgorithm {
     first_double: Option<Complex>,
     first_big: Option<BigComplex>,
     output: f64,
+    in_set: bool,
 }
 impl TriangleInequalityAlgorithm {
+    const DEFAULT_BAILOUT2: f64 = 1e40;
     /// Average power: skews values averaged by raising them to this power.
-    const APOWER: f64 = 1.0;
+    const DEFAULT_APOWER: f64 = 1.0;
 
-    pub fn new() -> Self {
+    fn factory(apower: f64, bailout2: f64) -> Self {
         Self {
+            bailout2,
             max_iter: Default::default(),
             sum: 0.0,
             sum2: 0.0,
             ac: Default::default(),
             lp: Default::default(),
-            ipower: 1.0 / Self::APOWER,
+            ipower: 1.0 / apower,
             first_double: None,
             first_big: None,
             output: 0.0,
+            in_set: false,
         }
+    }
+
+    pub fn new(apower: f64) -> Self {
+        Self::factory(apower, Self::DEFAULT_BAILOUT2)
     }
 
     fn get_output_double(&mut self, z: Complex, i: u32) -> f64 {
@@ -349,10 +469,14 @@ impl TriangleInequalityAlgorithm {
     }
 }
 impl LayerAlgorithm for TriangleInequalityAlgorithm {
-    fn before(&mut self, max_iterations: u32, bailout2: f64) {
+    fn get_bailout2(&self) -> f64 {
+        self.bailout2
+    }
+
+    fn before(&mut self, max_iterations: u32) {
         self.max_iter = max_iterations;
         // log(log(bailout) / 2)) = log(log(bailout^2) / 4)
-        self.lp = f64::log2(f64::log2(bailout2) * 0.25)
+        self.lp = f64::log2(f64::log2(self.bailout2) * 0.25)
     }
 
     fn during_double(&mut self, z: Complex, _i: u32) {
@@ -404,12 +528,22 @@ impl LayerAlgorithm for TriangleInequalityAlgorithm {
     fn get_output(&self) -> f64 {
         self.output
     }
+
+    fn get_in_set(&self) -> bool {
+        self.in_set
+    }
+}
+impl Default for TriangleInequalityAlgorithm {
+    fn default() -> Self {
+        Self::factory(Self::DEFAULT_APOWER, Self::DEFAULT_BAILOUT2)
+    }
 }
 
 /// Stripe average algorithm https://en.wikibooks.org/wiki/Fractals/Iterations_in_the_complex_plane/stripeAC
 /// with linear interpolation and skipped orbits
 #[derive(Clone, Debug)]
 pub struct StripeAverageAlgorithm {
+    bailout2: f64,
     /// Exclude all iterations less than or equal to this number (k)
     skip_iteration: u32,
     stripe_density: f64,
@@ -419,10 +553,14 @@ pub struct StripeAverageAlgorithm {
     max_iterations: u32,
     ln_bailout: f64,
     output: f64,
+    in_set: bool,
 }
 impl StripeAverageAlgorithm {
-    pub fn new(skip_iteration: u32, stripe_density: f64) -> Self {
+    const DEFAULT_BAILOUT2: f64 = 1e8;
+
+    fn factory(skip_iteration: u32, stripe_density: f64, bailout2: f64) -> Self {
         Self {
+            bailout2,
             skip_iteration,
             stripe_density,
             sum_tk: 0.0,
@@ -430,7 +568,12 @@ impl StripeAverageAlgorithm {
             max_iterations: Default::default(),
             ln_bailout: Default::default(),
             output: 0.0,
+            in_set: false,
         }
+    }
+
+    pub fn new(skip_iteration: u32, stripe_density: f64) -> Self {
+        Self::factory(skip_iteration, stripe_density, Self::DEFAULT_BAILOUT2)
     }
 
     /// t_n = t(z_n) = sin(s * arg(z_n))/2 + 1/2
@@ -458,9 +601,13 @@ impl StripeAverageAlgorithm {
     }
 }
 impl LayerAlgorithm for StripeAverageAlgorithm {
-    fn before(&mut self, max_iterations: u32, bailout2: f64) {
+    fn get_bailout2(&self) -> f64 {
+        self.bailout2
+    }
+
+    fn before(&mut self, max_iterations: u32) {
         self.max_iterations = max_iterations;
-        self.ln_bailout = f64::ln(bailout2) * 0.5;
+        self.ln_bailout = f64::ln(self.bailout2) * 0.5;
     }
 
     fn during_double(&mut self, z: Complex, i: u32) {
@@ -495,5 +642,14 @@ impl LayerAlgorithm for StripeAverageAlgorithm {
 
     fn get_output(&self) -> f64 {
         self.output
+    }
+
+    fn get_in_set(&self) -> bool {
+        self.in_set
+    }
+}
+impl Default for StripeAverageAlgorithm {
+    fn default() -> Self {
+        Self::factory(1, 1.0, Self::DEFAULT_BAILOUT2)
     }
 }
