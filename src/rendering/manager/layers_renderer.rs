@@ -95,7 +95,6 @@ impl LayersRenderer {
             pixel_dc,
             reference_orbit,
             max_iterations,
-            self.max_bailout2,
             &mut this_implementations,
         );
 

@@ -1,7 +1,7 @@
 use std::sync::{Arc, Mutex};
 
 use super::layer_algorithms::{LayerAlgorithm, LayerImplementation};
-use crate::{types::*, ui::fractal_canvas::CanvasDimensions};
+use crate::types::*;
 
 use macroquad::prelude::*;
 
@@ -117,9 +117,10 @@ pub fn analyse_pixel(
     dc: Complex,
     reference_orbit: &Arc<ReferenceOrbit>,
     max_iterations: u32,
-    max_bailout2: f64,
     implementations: &mut Vec<LayerImplementation>,
 ) {
+    let mut bailed_out = vec![false; implementations.len()];
+
     // Uses this reference orbit method:
     // https://fractalforums.org/index.php?topic=4360.msg29835#msg29835
 
@@ -135,17 +136,28 @@ pub fn analyse_pixel(
         ref_iteration += 1;
 
         let z = reference_orbit.ref_z[ref_iteration] + dz;
-
-        // Point escaped a layer
         let mod_z = z.abs_squared();
-        for im in implementations.iter_mut() {
+
+        // Bailing out / contiuing
+        let mut all_bailed = true;
+        for (idx, im) in implementations.iter_mut().enumerate() {
+            if bailed_out[idx] {
+                continue;
+            }
+
             if mod_z > im.get_bailout2() {
+                // This layer bailed out
                 im.out_set_double(z, i);
+                bailed_out[idx] = true;
+            } else {
+                // Hasn't bailed out yet
+                im.during_double(z, i);
+                all_bailed = false;
             }
         }
 
         // Point fully escaped all layers
-        if mod_z > max_bailout2 {
+        if all_bailed {
             return;
         }
 
@@ -154,14 +166,11 @@ pub fn analyse_pixel(
             dz = z;
             ref_iteration = 0;
         }
-
-        for im in implementations.iter_mut() {
-            im.during_double(z, i);
-        }
     }
 
     // Point stayed bounded
+    let final_z = reference_orbit.ref_z[ref_iteration] + dz;
     for im in implementations.iter_mut() {
-        im.in_set_double(reference_orbit.ref_z[ref_iteration] + dz);
+        im.in_set_double(final_z);
     }
 }
