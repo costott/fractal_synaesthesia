@@ -276,6 +276,7 @@ impl Complex {
     }
 }
 impl ComplexNumber for Complex {
+    #[inline(always)]
     fn square(&self) -> Self {
         Complex::new(
             self.real * self.real - self.im * self.im,
@@ -283,8 +284,9 @@ impl ComplexNumber for Complex {
         )
     }
 
+    #[inline(always)]
     fn abs_squared(&self) -> f64 {
-        self.real.powi(2) + self.im.powi(2)
+        self.real * self.real + self.im * self.im
     }
 
     fn conjugate(&self) -> Complex {
@@ -320,6 +322,7 @@ impl ComplexNumber for Complex {
         vec2(self.real as f32, self.im as f32)
     }
 
+    #[inline(always)]
     fn rotate(&self, angle: f64) -> Self {
         Self {
             real: self.real * f64::cos(angle) - self.im * f64::sin(angle),
@@ -330,6 +333,7 @@ impl ComplexNumber for Complex {
 impl Add for Complex {
     type Output = Complex;
 
+    #[inline(always)]
     fn add(self, other: Complex) -> Complex {
         Complex {
             real: self.real + other.real,
@@ -340,6 +344,7 @@ impl Add for Complex {
 impl Add<f64> for Complex {
     type Output = Complex;
 
+    #[inline(always)]
     fn add(self, rhs: f64) -> Self::Output {
         Complex {
             real: self.real + rhs,
@@ -350,6 +355,7 @@ impl Add<f64> for Complex {
 impl Sub for Complex {
     type Output = Complex;
 
+    #[inline(always)]
     fn sub(self, rhs: Self) -> Self::Output {
         Complex {
             real: self.real - rhs.real,
@@ -360,6 +366,7 @@ impl Sub for Complex {
 impl Sub<f64> for Complex {
     type Output = Complex;
 
+    #[inline(always)]
     fn sub(self, rhs: f64) -> Self::Output {
         Complex {
             real: self.real - rhs,
@@ -370,6 +377,7 @@ impl Sub<f64> for Complex {
 impl Mul for Complex {
     type Output = Complex;
 
+    #[inline(always)]
     fn mul(self, rhs: Self) -> Self::Output {
         Complex {
             real: self.real * rhs.real - self.im * rhs.im,
@@ -380,6 +388,7 @@ impl Mul for Complex {
 impl Mul<f64> for Complex {
     type Output = Complex;
 
+    #[inline(always)]
     fn mul(self, rhs: f64) -> Self::Output {
         Complex {
             real: self.real * rhs,
@@ -390,6 +399,7 @@ impl Mul<f64> for Complex {
 impl Div for Complex {
     type Output = Complex;
 
+    #[inline(always)]
     fn div(self, rhs: Self) -> Self::Output {
         let n = self * rhs.conjugate();
         let d = rhs.real * rhs.real + rhs.im * rhs.im;
@@ -402,6 +412,7 @@ impl Div for Complex {
 impl Div<f64> for Complex {
     type Output = Complex;
 
+    #[inline(always)]
     fn div(self, rhs: f64) -> Self::Output {
         Complex {
             real: self.real / rhs,
@@ -412,6 +423,7 @@ impl Div<f64> for Complex {
 impl<'l> Div<f64> for &'l Complex {
     type Output = Complex;
 
+    #[inline(always)]
     fn div(self, rhs: f64) -> Self::Output {
         Complex {
             real: self.real / rhs,

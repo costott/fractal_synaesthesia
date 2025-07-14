@@ -253,7 +253,6 @@ impl OrbitTrap for OrbitTrapCross {
     /// returns the maximum possible distance
     /// a complex number can be from the trap
     fn greatest_distance2(&self, bailout2: f64) -> f64 {
-        // (bailout2.sqrt() + self.centre.abs_squared().sqrt()).powi(2)
         match self.analysis {
             OrbitTrapAnalysis::Distance => {
                 (bailout2.sqrt() + self.center.abs_squared().sqrt()).powi(2)

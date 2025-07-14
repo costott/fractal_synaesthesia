@@ -1,6 +1,6 @@
 /// Layering algorithms that can be run while analysing a point/pixel.
 use crate::{rendering::orbit_trap::*, types::*};
-use std::{default, f64::consts::PI};
+use std::f64::consts::PI;
 
 /// Operations algorithms should perform while analysing a point/pixel.
 pub trait LayerAlgorithm {
@@ -586,6 +586,11 @@ impl StripeAverageAlgorithm {
     }
 
     fn final_interpolated_a(&self, abs2_z: f64, i: u32) -> f64 {
+        let mut i = i;
+        if i <= self.skip_iteration {
+            i = self.skip_iteration + 1;
+        }
+
         // A_{n, k}
         let avg_tk = self.sum_tk / (i - self.skip_iteration) as f64;
         // A_{n, k-1}

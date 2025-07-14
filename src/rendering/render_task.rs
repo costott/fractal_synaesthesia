@@ -35,7 +35,7 @@ impl TaskRegion {
 pub struct RenderTask {
     pub layer_renderer: LayersRenderer,
     pub reference_orbit: Arc<ReferenceOrbit>,
-    pub fractal_params: FractalParams,
+    pub fractal_params: Arc<Mutex<FractalParams>>,
     pub cancel_render: Arc<AtomicBool>,
 }
 impl RenderTask {
@@ -49,14 +49,15 @@ impl RenderTask {
     ) where
         F: FnMut(u32, u32, Color),
     {
+        let params = self.fractal_params.lock().unwrap();
+        let pixel_step = params.pixel_step;
+        let fractal = Arc::clone(&params.fractal);
+        let max_iterations = params.max_iterations;
+        let rotation = params.rotation;
+        drop(params);
+
         for y in region.start_y..=region.end_y {
             for x in region.start_x..=region.end_x {
-                let params = &self.fractal_params;
-                let pixel_step = params.pixel_step;
-                let fractal = Arc::clone(&params.fractal);
-                let max_iterations = params.max_iterations;
-                let rotation = params.rotation;
-
                 let dc = Complex::new(
                     -(image_width / 2.0 - x as f64) * pixel_step,
                     (image_height / 2.0 - y as f64) * pixel_step,
