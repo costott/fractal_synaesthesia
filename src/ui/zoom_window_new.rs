@@ -289,7 +289,7 @@ impl ZoomWindow {
         }
 
         // Undo
-        if is_mouse_button_down(MouseButton::Right) && !self.history.is_empty() {
+        if is_mouse_button_pressed(MouseButton::Right) && !self.history.is_empty() {
             let (center, pixel_step, rotation) = self.history.pop().unwrap();
             let mut params = fractal_params.lock().unwrap();
             *params.center.lock().unwrap() = center;
