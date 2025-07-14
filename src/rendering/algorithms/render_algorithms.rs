@@ -1,7 +1,7 @@
 use std::sync::{Arc, Mutex};
 
 use super::layer_algorithms::{LayerAlgorithm, LayerImplementation};
-use crate::types::*;
+use crate::{types::*, ui::fractal_canvas::CanvasDimensions};
 
 use macroquad::prelude::*;
 
@@ -39,6 +39,7 @@ pub struct FractalParams {
     pub center: Arc<Mutex<BigComplex>>,
     pub pixel_step: f64,
     pub max_iterations: u32,
+    pub rotation: f64,
 }
 
 pub struct ReferenceOrbit {

@@ -23,40 +23,40 @@ impl FractalVisualiser {
     pub fn new(params: &Arc<Mutex<FractalParams>>, canvas_dims: CanvasDimensions) -> Self {
         let layer_manager = Arc::new(Mutex::new(LayerManager::new(
             vec![
-                // Layer::new(
-                //     LayerAlgorithmKind::Colour,
-                //     LayerRange::OutSet,
-                //     1.0,
-                //     Palette::new_even(
-                //         vec![WHITE, ORANGE, BLUE, WHITE],
-                //         PaletteMappingType::Repeated,
-                //         0.1,
-                //         0.1,
-                //     ),
-                // ),
                 Layer::new(
-                    LayerAlgorithmKind::StripeAverageAlgorithm {
-                        skip_iteration: 1,
-                        stripe_density: 5.0,
-                    },
+                    LayerAlgorithmKind::Colour,
                     LayerRange::OutSet,
                     1.0,
                     Palette::new_even(
-                        vec![RED, ORANGE, YELLOW, WHITE, ORANGE, RED],
+                        vec![WHITE, ORANGE, BLUE, WHITE],
                         PaletteMappingType::Repeated,
-                        1.0,
-                        0.3,
+                        0.1,
+                        0.1,
                     ),
                 ),
-                Layer::new(
-                    LayerAlgorithmKind::Shading3D {
-                        h2: 1.5,
-                        angle: 45.0,
-                    },
-                    LayerRange::OutSet,
-                    0.8,
-                    Palette::default(),
-                ),
+                // Layer::new(
+                //     LayerAlgorithmKind::StripeAverageAlgorithm {
+                //         skip_iteration: 1,
+                //         stripe_density: 5.0,
+                //     },
+                //     LayerRange::OutSet,
+                //     1.0,
+                //     Palette::new_even(
+                //         vec![RED, ORANGE, YELLOW, WHITE, ORANGE, RED],
+                //         PaletteMappingType::Repeated,
+                //         1.0,
+                //         0.3,
+                //     ),
+                // ),
+                // Layer::new(
+                //     LayerAlgorithmKind::Shading3D {
+                //         h2: 1.5,
+                //         angle: 45.0,
+                //     },
+                //     LayerRange::OutSet,
+                //     0.8,
+                //     Palette::default(),
+                // ),
             ],
             true,
         )));

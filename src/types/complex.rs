@@ -74,6 +74,7 @@ pub trait ComplexNumber {
     fn update_im_from_string(&mut self, new: String);
     /// Returns the Complex number converted to a vec2.
     fn to_vec2(&self) -> Vec2;
+    fn rotate(&self, angle: f64) -> Self;
 }
 
 /// An enum to hold a complex number of some (double/arbitrary precision) type
@@ -317,6 +318,13 @@ impl ComplexNumber for Complex {
 
     fn to_vec2(&self) -> Vec2 {
         vec2(self.real as f32, self.im as f32)
+    }
+
+    fn rotate(&self, angle: f64) -> Self {
+        Self {
+            real: self.real * f64::cos(angle) - self.im * f64::sin(angle),
+            im: self.real * f64::sin(angle) + self.im * f64::cos(angle),
+        }
     }
 }
 impl Add for Complex {
@@ -569,6 +577,16 @@ impl ComplexNumber for BigComplex {
 
     fn to_vec2(&self) -> Vec2 {
         vec2(self.real_f64() as f32, self.im_f64() as f32)
+    }
+
+    fn rotate(&self, angle: f64) -> Self {
+        let cosa = FBig::try_from(f64::cos(angle)).unwrap();
+        let sina = FBig::try_from(f64::sin(angle)).unwrap();
+
+        Self {
+            real: self.real.clone() * cosa.clone() - self.im.clone() * sina.clone(),
+            im: self.real.clone() * sina + self.im.clone() * cosa,
+        }
     }
 }
 impl Add for BigComplex {
