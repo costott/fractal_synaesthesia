@@ -1,6 +1,8 @@
 pub mod fractal_canvas;
-pub mod keyboard_controller;
-pub mod zoom_window;
+mod keyboard_controller;
+mod menu;
+mod zoom_window;
+mod zoom_window_new;
 
 use macroquad::prelude::*;
 use std::sync::{Arc, Mutex};
@@ -11,7 +13,7 @@ use crate::{
         fractal_visualiser::FractalVisualiser,
     },
     types::BigComplex,
-    ui::{fractal_canvas::CanvasDimensions, zoom_window::ZoomWindow},
+    ui::{fractal_canvas::CanvasDimensions, zoom_window_new::ZoomWindow},
 };
 
 pub struct App {
@@ -26,6 +28,7 @@ impl App {
             center: Arc::new(Mutex::new(BigComplex::from_f64s(-0.5, 0.0))),
             pixel_step: 0.005,
             max_iterations: 500,
+            rotation: 0.0,
         }));
 
         let dims = CanvasDimensions {

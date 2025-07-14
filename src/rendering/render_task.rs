@@ -10,7 +10,7 @@ use crate::{
         algorithms::render_algorithms::{FractalParams, ReferenceOrbit},
         manager::layers_renderer::LayersRenderer,
     },
-    types::Complex,
+    types::{Complex, ComplexNumber},
 };
 
 /// The range of `x` and `y` pixel values a [`RenderTask`] runs on.
@@ -55,11 +55,13 @@ impl RenderTask {
                 let pixel_step = params.pixel_step;
                 let fractal = Arc::clone(&params.fractal);
                 let max_iterations = params.max_iterations;
+                let rotation = params.rotation;
 
                 let dc = Complex::new(
                     -(image_width / 2.0 - x as f64) * pixel_step,
                     (image_height / 2.0 - y as f64) * pixel_step,
-                );
+                )
+                .rotate(-rotation);
 
                 let colour = match self.layer_renderer.render_pixel(
                     &fractal,
