@@ -8,6 +8,7 @@ dashu-float = "0.4.3"
 egui = "0.32.0"
 macroquad = "0.4.14"
 num_cpus = "1.17.0"
+smallvec = "1.15.1"
 threadpool = "1.8.1"
 
 [profile.dev]
