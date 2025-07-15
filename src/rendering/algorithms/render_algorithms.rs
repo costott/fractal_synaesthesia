@@ -4,6 +4,7 @@ use super::layer_algorithms::{LayerAlgorithm, LayerImplementation};
 use crate::types::*;
 
 use macroquad::prelude::*;
+use smallvec::SmallVec;
 
 /// Fractal rendering algorithms
 pub enum Fractal {
@@ -14,17 +15,12 @@ impl Fractal {
         *z = &z.square() + c;
     }
 
-    pub fn iterate_perturbed(
-        &self,
-        reference_orbit: &ReferenceOrbit,
-        ref_iteration: usize,
-        dz: &mut Complex,
-        dc: &Complex,
-    ) {
+    #[inline(always)]
+    pub fn iterate_perturbed(&self, ref_z: &Complex, dz: &mut Complex, dc: &Complex) {
         match *self {
             Self::Mandelbrot { power } => {
                 if power == 2 {
-                    *dz = reference_orbit.ref_z[ref_iteration] * *dz * 2.0 + dz.square() + *dc;
+                    *dz = *ref_z * *dz * 2.0 + dz.square() + *dc;
                 } else {
                     todo!();
                 }
@@ -44,7 +40,8 @@ pub struct FractalParams {
 
 pub struct ReferenceOrbit {
     /// the reference orbit, starting from `0 + 0i`
-    pub ref_z: Vec<Complex>,
+    pub ref_z: SmallVec<[Complex; 16]>, // store the first 16 points on the stack, the rest on the heap
+    // pub ref_z: Box<[Complex]>,
     /// the iteration just before the referencre orbit diverged
     pub max_ref_iteration: usize,
 }
@@ -52,7 +49,8 @@ impl ReferenceOrbit {
     pub fn new(fractal_params: &Arc<Mutex<FractalParams>>, max_bailout2: f64) -> ReferenceOrbit {
         let params = fractal_params.lock().unwrap();
 
-        let mut ref_z: Vec<Complex> = Vec::with_capacity(params.max_iterations as usize);
+        // let mut ref_z: Vec<Complex> = Vec::with_capacity(params.max_iterations as usize);
+        let mut ref_z = SmallVec::with_capacity(params.max_iterations as usize);
         let mut max_ref_iteration = 0;
 
         let mut z = BigComplex::from_f64s(0., 0.);
@@ -132,10 +130,12 @@ pub fn analyse_pixel(
     }
 
     for i in 0..max_iterations {
-        fractal.iterate_perturbed(reference_orbit, ref_iteration, &mut dz, &dc);
+        let ref_z = unsafe { reference_orbit.ref_z.get_unchecked(ref_iteration) };
+        fractal.iterate_perturbed(ref_z, &mut dz, &dc);
         ref_iteration += 1;
 
-        let z = reference_orbit.ref_z[ref_iteration] + dz;
+        let ref_z = unsafe { reference_orbit.ref_z.get_unchecked(ref_iteration) };
+        let z = *ref_z + dz;
         let mod_z = z.abs_squared();
 
         // Bailing out / contiuing
