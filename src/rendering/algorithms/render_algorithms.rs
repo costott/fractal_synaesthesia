@@ -37,6 +37,23 @@ pub struct FractalParams {
     pub max_iterations: u32,
     pub rotation: f64,
 }
+impl FractalParams {
+    pub fn new(
+        fractal: Fractal,
+        center: BigComplex,
+        pixel_step: f64,
+        max_iterations: u32,
+        rotation: f64,
+    ) -> Self {
+        Self {
+            fractal: Arc::new(fractal),
+            center: Arc::new(Mutex::new(center)),
+            pixel_step,
+            max_iterations,
+            rotation,
+        }
+    }
+}
 
 pub struct ReferenceOrbit {
     /// the reference orbit, starting from `0 + 0i`
