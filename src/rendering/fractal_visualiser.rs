@@ -6,7 +6,7 @@ use crate::{
         manager::{layer::*, layer_manager::LayerManager, layers_renderer::LayersRenderer},
         palette::*,
     },
-    ui::fractal_canvas::{CanvasDimensions, FractalCanvas},
+    ui::fractal::fractal_canvas::{CanvasDimensions, FractalCanvas},
 };
 
 use crate::rendering::orbit_trap::*;

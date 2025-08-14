@@ -5,7 +5,9 @@ edition = "2024"
 
 [dependencies]
 dashu-float = "0.4.3"
+eframe = "0.32.0"
 egui = "0.32.0"
+egui-macroquad = "0.17.3"
 macroquad = "0.4.14"
 num_cpus = "1.17.0"
 smallvec = "1.15.1"

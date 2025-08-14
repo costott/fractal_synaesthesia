@@ -13,7 +13,7 @@ use crate::{
         manager::layers_renderer::LayersRenderer,
         render_task::{RenderTask, TaskRegion},
     },
-    ui::fractal_canvas::CanvasDimensions,
+    ui::fractal::fractal_canvas::CanvasDimensions,
 };
 
 pub struct Renderer {

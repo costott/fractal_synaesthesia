@@ -15,6 +15,7 @@ pub struct CanvasDimensions {
     pub height: u16,
 }
 
+/// UI canvas to render the fractal to
 pub struct FractalCanvas {
     image: Arc<Mutex<Image>>,
     pub dims: CanvasDimensions,

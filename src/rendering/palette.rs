@@ -1,7 +1,6 @@
-use std::collections::HashSet;
-
 /// A colour palette used for rendering
 use macroquad::prelude::*;
+use std::collections::HashSet;
 
 /// Linear interpolation between `a` to `b` with parameter `t`.
 fn lerp(a: f32, b: f32, t: f32) -> f32 {

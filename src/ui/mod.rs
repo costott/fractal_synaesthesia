@@ -1,67 +1,50 @@
-pub mod fractal_canvas;
-mod keyboard_controller;
-mod menu;
-mod zoom_window;
-mod zoom_window_new;
-
-use macroquad::prelude::*;
-use std::sync::{Arc, Mutex};
+use eframe::egui;
+use macroquad::window::{screen_height, screen_width};
 
 use crate::{
-    rendering::{
-        algorithms::render_algorithms::{Fractal, FractalParams},
-        fractal_visualiser::FractalVisualiser,
-    },
+    rendering::algorithms::render_algorithms::{Fractal, FractalParams},
     types::BigComplex,
-    ui::{fractal_canvas::CanvasDimensions, zoom_window_new::ZoomWindow},
+    ui::fractal::{fractal_canvas::CanvasDimensions, fractal_window::FractalWindow},
 };
 
+pub mod fractal;
+pub mod menu;
+
 pub struct App {
-    fractal_visualiser: FractalVisualiser,
-    fractal_params: Arc<Mutex<FractalParams>>,
-    zoom_window: ZoomWindow,
+    main_fractal: FractalWindow,
 }
 impl App {
     pub fn new() -> Self {
-        let params = Arc::new(Mutex::new(FractalParams {
-            fractal: Arc::new(Fractal::Mandelbrot { power: 2 }),
-            center: Arc::new(Mutex::new(BigComplex::from_f64s(-0.5, 0.0))),
-            pixel_step: 0.005,
-            max_iterations: 500,
-            rotation: 0.0,
-        }));
-
-        let dims = CanvasDimensions {
-            width: screen_width() as u16,
-            height: screen_height() as u16,
-        };
-
-        let mut visualiser = FractalVisualiser::new(&Arc::clone(&params), dims);
-        visualiser.update_render(&Arc::clone(&params));
-
         Self {
-            fractal_params: params,
-            fractal_visualiser: visualiser,
-            zoom_window: ZoomWindow::new(),
+            main_fractal: FractalWindow::new(
+                FractalParams::new(
+                    Fractal::Mandelbrot { power: 2 },
+                    BigComplex::from_f64s(-0.5, 0.0),
+                    0.005,
+                    500,
+                    0.0,
+                ),
+                CanvasDimensions {
+                    width: screen_width() as u16,
+                    height: screen_height() as u16,
+                },
+            ),
         }
     }
 
     pub fn update(&mut self) {
-        let changed = self.zoom_window.update(
-            Arc::clone(&self.fractal_params),
-            self.fractal_visualiser.canvas.dims,
-        );
-
-        if changed {
-            self.fractal_visualiser
-                .update_render(&Arc::clone(&self.fractal_params));
-        }
+        self.main_fractal.update();
     }
 
     pub fn draw(&self) {
-        clear_background(BLACK);
+        self.main_fractal.draw();
+    }
+}
 
-        self.fractal_visualiser.draw(0.0, 0.0);
-        self.zoom_window.draw();
+impl eframe::App for App {
+    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        egui::CentralPanel::default().show(ctx, |ui| {
+            ui.heading("Test");
+        });
     }
 }
