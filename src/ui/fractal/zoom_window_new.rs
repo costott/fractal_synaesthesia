@@ -30,14 +30,10 @@ struct ZoomWindowCreator {
     state: ZoomWindowCreatorState,
 }
 impl ZoomWindowCreator {
-    fn new(canvas_dimensions: CanvasDimensions) -> Self {
+    fn new(window_rect: Rect) -> Self {
         Self {
             center: mouse_position().into(),
-            size: MIN_ZOOM_SIZE
-                * vec2(
-                    canvas_dimensions.width as f32,
-                    canvas_dimensions.height as f32,
-                ),
+            size: MIN_ZOOM_SIZE * vec2(window_rect.w as f32, window_rect.h as f32),
             rotation_vector: vec2(1.0, 0.0),
             state: ZoomWindowCreatorState::Resizing,
         }
@@ -100,7 +96,7 @@ impl ZoomWindowCreator {
         draw_circle(rotation_line[1].x, rotation_line[1].y, 3.0, WHITE);
     }
 
-    fn update(&mut self, canvas_dimensions: CanvasDimensions) {
+    fn update(&mut self, window_rect: Rect) {
         // state transisions
         match self.state {
             ZoomWindowCreatorState::Static => self.while_static(),
@@ -113,7 +109,7 @@ impl ZoomWindowCreator {
 
         match self.state {
             ZoomWindowCreatorState::Static => {}
-            ZoomWindowCreatorState::Resizing => self.resizing(canvas_dimensions),
+            ZoomWindowCreatorState::Resizing => self.resizing(window_rect),
             ZoomWindowCreatorState::Rotation => self.rotating(),
         }
     }
@@ -159,20 +155,17 @@ impl ZoomWindowCreator {
         }
     }
 
-    fn resizing(&mut self, canvas_dimensions: CanvasDimensions) {
+    fn resizing(&mut self, window_rect: Rect) {
         let mouse_pos: Vec2 = mouse_position().into();
         let hold_delta = mouse_pos - self.center;
 
         let window_fraction = f32::max(
-            2.0 * hold_delta.x / canvas_dimensions.width as f32,
-            2.0 * hold_delta.y / canvas_dimensions.height as f32,
+            2.0 * hold_delta.x / window_rect.w as f32,
+            2.0 * hold_delta.y / window_rect.h as f32,
         )
         .max(MIN_ZOOM_SIZE);
 
-        self.size = vec2(
-            canvas_dimensions.width as f32,
-            canvas_dimensions.height as f32,
-        ) * window_fraction;
+        self.size = vec2(window_rect.w as f32, window_rect.h as f32) * window_fraction;
     }
 
     fn rotating(&mut self) {
@@ -185,25 +178,21 @@ impl ZoomWindowCreator {
         self.rotation_vector = vec2(0.0, 1.0).rotate(hold_delta.normalize_or(vec2(1.0, 0.0)));
     }
 
-    fn apply_zoom(
-        &self,
-        fractal_params: Arc<Mutex<FractalParams>>,
-        canvas_dimensions: CanvasDimensions,
-    ) {
+    fn apply_zoom(&self, window_rect: Rect, fractal_params: Arc<Mutex<FractalParams>>) {
         let params = fractal_params.lock().unwrap();
         let pixel_step = params.pixel_step;
         let big_pixel_step = FBig::try_from(pixel_step).unwrap();
         let rotation = params.rotation;
         drop(params);
+
+        let delta = self.center - window_rect.center();
         let dc = BigComplex::new(
-            -FBig::try_from(canvas_dimensions.width as f32 / 2.0 - self.center.x).unwrap()
-                * big_pixel_step.clone(),
-            FBig::try_from(canvas_dimensions.height as f32 / 2.0 - self.center.y).unwrap()
-                * big_pixel_step,
+            FBig::try_from(delta.x).unwrap() * big_pixel_step.clone(),
+            -FBig::try_from(delta.y).unwrap() * big_pixel_step,
         )
         .rotate(-rotation);
 
-        let window_fraction = self.size.x / canvas_dimensions.width as f32;
+        let window_fraction = self.size.x / window_rect.w as f32;
 
         let params = fractal_params.lock().unwrap();
         let new_center = params.center.lock().unwrap().clone().safe_add(&dc);
@@ -229,6 +218,13 @@ impl ZoomWindow {
         }
     }
 
+    pub fn is_active(&self) -> bool {
+        match self.state {
+            ZoomWindowState::Inactive => false,
+            _ => true,
+        }
+    }
+
     pub fn draw(&self) {
         match &self.state {
             ZoomWindowState::Inactive => {}
@@ -237,11 +233,10 @@ impl ZoomWindow {
     }
 
     /// Returns whether there was an update to the fractal parameters.
-    pub fn update(
-        &mut self,
-        fractal_params: Arc<Mutex<FractalParams>>,
-        canvas_dimensions: CanvasDimensions,
-    ) -> bool {
+    ///
+    /// # Arguments
+    /// `window_rect`: The rectangle the fractal window is contained in on the screen.
+    pub fn update(&mut self, window_rect: Rect, fractal_params: Arc<Mutex<FractalParams>>) -> bool {
         // Cancelling
         match self.state {
             ZoomWindowState::Inactive => {}
@@ -254,9 +249,9 @@ impl ZoomWindow {
 
         // Updating
         match &mut self.state {
-            ZoomWindowState::Inactive => self.inactive(fractal_params, canvas_dimensions),
+            ZoomWindowState::Inactive => self.inactive(window_rect, fractal_params),
             ZoomWindowState::Creating(creator) => {
-                creator.update(canvas_dimensions);
+                creator.update(window_rect);
 
                 // Apply change
                 if is_key_pressed(KeyCode::Enter) {
@@ -268,7 +263,7 @@ impl ZoomWindow {
                     ));
                     drop(params);
 
-                    creator.apply_zoom(fractal_params, canvas_dimensions);
+                    creator.apply_zoom(window_rect, fractal_params);
                     self.state = ZoomWindowState::Inactive;
                     true
                 } else {
@@ -278,14 +273,14 @@ impl ZoomWindow {
         }
     }
 
-    fn inactive(
-        &mut self,
-        fractal_params: Arc<Mutex<FractalParams>>,
-        canvas_dimensions: CanvasDimensions,
-    ) -> bool {
+    fn inactive(&mut self, window_rect: Rect, fractal_params: Arc<Mutex<FractalParams>>) -> bool {
+        if !window_rect.contains(mouse_position().into()) {
+            return false;
+        }
+
         // Create new window
         if is_mouse_button_down(MouseButton::Left) {
-            self.state = ZoomWindowState::Creating(ZoomWindowCreator::new(canvas_dimensions));
+            self.state = ZoomWindowState::Creating(ZoomWindowCreator::new(window_rect));
         }
 
         // Undo

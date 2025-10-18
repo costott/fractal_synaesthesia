@@ -41,6 +41,8 @@ impl Renderer {
         let image_width = canvas_dimensions.width as usize;
         let image_height = canvas_dimensions.height as usize;
 
+        let thread_height = image_height / threads;
+
         for t in 0..threads {
             let render_task = Arc::new(RenderTask {
                 layer_renderer: layer_renderer.clone(),
@@ -50,16 +52,18 @@ impl Renderer {
             });
 
             let tx = tx.clone();
-
             self.thread_pool.execute(move || {
-                let mut thread_height = image_height / threads;
-                // account for excess on last thread
-                if t == threads - 1 {
-                    thread_height = image_height - t * thread_height - 1;
-                }
-
                 render_task.run_on(
-                    TaskRegion::new(t * thread_height, thread_height, 0, image_width),
+                    TaskRegion::new(
+                        t * thread_height,
+                        if t < threads - 1 {
+                            thread_height
+                        } else {
+                            image_height - t * thread_height // account for excess on last thread
+                        },
+                        0,
+                        image_width,
+                    ),
                     image_width as f64,
                     image_height as f64,
                     move |x, y, colour| {
