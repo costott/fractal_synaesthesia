@@ -14,6 +14,14 @@ pub struct CanvasDimensions {
     pub width: u16,
     pub height: u16,
 }
+impl From<(u16, u16)> for CanvasDimensions {
+    fn from(value: (u16, u16)) -> Self {
+        Self {
+            width: value.0,
+            height: value.1,
+        }
+    }
+}
 
 /// UI canvas to render the fractal to
 pub struct FractalCanvas {

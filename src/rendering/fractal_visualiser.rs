@@ -20,7 +20,7 @@ pub struct FractalVisualiser {
     pub canvas: FractalCanvas,
 }
 impl FractalVisualiser {
-    pub fn new(params: &Arc<Mutex<FractalParams>>, canvas_dims: CanvasDimensions) -> Self {
+    pub fn new(params: &FractalParams, canvas_dims: CanvasDimensions) -> Self {
         let layer_manager = Arc::new(Mutex::new(LayerManager::new(
             vec![
                 Layer::new(
@@ -80,10 +80,15 @@ impl FractalVisualiser {
         layer_manager
             .lock()
             .unwrap()
-            .generate_palettes(params.lock().unwrap().max_iterations as f32);
+            .generate_palettes(params.max_iterations as f32);
         let layer_renderer = LayersRenderer::new(Arc::clone(&layer_manager));
         // TEMP
-        let reference_orbit = Arc::new(ReferenceOrbit::new(params, layer_renderer.max_bailout2));
+
+        // create initial reference orbit
+        let reference_orbit = Arc::new(ReferenceOrbit::new(
+            &Arc::new(Mutex::new(params.clone())),
+            layer_renderer.max_bailout2,
+        ));
         let canvas = FractalCanvas::new(canvas_dims);
 
         Self {
