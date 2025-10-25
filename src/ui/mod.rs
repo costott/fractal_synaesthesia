@@ -12,6 +12,7 @@ mod menus;
 mod window;
 
 pub const NORMAL_TEXT_SIZE: f32 = 15.0;
+pub const START_PIXEL_STEP: f64 = 0.005;
 
 pub struct App {
     main_fractal: FractalWindow,
@@ -25,7 +26,7 @@ impl App {
         let params = FractalParams::new(
             Fractal::Mandelbrot { power: 2 },
             BigComplex::from_f64s(-0.5, 0.0),
-            0.005,
+            START_PIXEL_STEP,
             500,
             0.0,
         );
@@ -56,7 +57,10 @@ impl App {
     pub fn update(&mut self) {
         egui_macroquad::ui(|egui_ctx| {
             egui_ctx.style_mut(|style| {
-                // style.visuals.override_text_color = Some(egui::Color32::BLACK);
+                style.visuals.override_text_color = Some(egui::Color32::DARK_GRAY);
+                style.visuals.extreme_bg_color = egui::Color32::LIGHT_GRAY;
+                style.visuals.widgets.inactive.bg_fill = egui::Color32::LIGHT_GRAY;
+                style.visuals.widgets.inactive.weak_bg_fill = egui::Color32::LIGHT_GRAY;
             });
 
             self.main_fractal.update(egui_ctx, &mut self.window_context);
