@@ -1,6 +1,9 @@
 use dashu_float::{FBig, round::mode};
 use macroquad::prelude::*;
-use std::ops::{Add, Div, Mul, Neg, Sub};
+use std::{
+    ops::{Add, Div, Mul, Neg, Sub},
+    str::FromStr,
+};
 
 /// Computes `n!`.
 fn factorial(n: u32) -> u32 {
@@ -291,8 +294,8 @@ impl BigComplex {
     /// Creates a new BigComplex number from given f64 numbers.
     pub fn from_f64s(real: f64, im: f64) -> BigComplex {
         BigComplex {
-            real: FBig::try_from(real).unwrap(),
-            im: FBig::try_from(im).unwrap(),
+            real: FBig::try_from(real).unwrap().with_precision(64).value(),
+            im: FBig::try_from(im).unwrap().with_precision(64).value(),
         }
     }
 
@@ -382,6 +385,14 @@ impl BigComplex {
         self.real
             .clone()
             .with_base_and_precision::<10>(self.real.precision())
+            .value()
+            .to_string()
+    }
+
+    pub fn im_string(&mut self) -> String {
+        self.im
+            .clone()
+            .with_base_and_precision::<10>(self.im.precision())
             .value()
             .to_string()
     }

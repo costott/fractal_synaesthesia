@@ -1,3 +1,3 @@
 pub mod fractal_canvas;
 pub mod fractal_window;
-mod zoom_window_new;
+mod zoom_window;

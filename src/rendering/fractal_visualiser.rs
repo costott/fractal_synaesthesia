@@ -76,13 +76,7 @@ impl FractalVisualiser {
             ],
             true,
         )));
-        // TEMP
-        layer_manager
-            .lock()
-            .unwrap()
-            .generate_palettes(params.max_iterations as f32);
         let layer_renderer = LayersRenderer::new(Arc::clone(&layer_manager));
-        // TEMP
 
         // create initial reference orbit
         let reference_orbit = Arc::new(ReferenceOrbit::new(
@@ -108,6 +102,7 @@ impl FractalVisualiser {
             params,
             self.layer_renderer.max_bailout2,
         ));
+        self.layer_manager.lock().unwrap().generate_palettes(params.lock().unwrap().max_iterations as f32);
         self.canvas.update_render(
             &self.layer_renderer,
             Arc::clone(&params),
