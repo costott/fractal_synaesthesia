@@ -11,6 +11,8 @@ pub mod fractal;
 mod menus;
 mod window;
 
+pub const NORMAL_TEXT_SIZE: f32 = 15.0;
+
 pub struct App {
     main_fractal: FractalWindow,
     window_context: WindowContext,

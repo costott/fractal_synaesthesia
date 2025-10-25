@@ -5,7 +5,7 @@ use crate::{
     rendering::{
         algorithms::render_algorithms::FractalParams, fractal_visualiser::FractalVisualiser,
     },
-    ui::{Window, WindowContext, WindowParams, fractal::zoom_window_new::ZoomWindow},
+    ui::{Window, WindowContext, WindowParams, fractal::zoom_window::ZoomWindow},
 };
 
 /// A UI element for a fractal
