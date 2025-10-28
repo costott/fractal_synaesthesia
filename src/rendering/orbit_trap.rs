@@ -104,6 +104,11 @@ impl OrbitTrap for OrbitTrapType {
         delegate_orbit_trap_type!(self.set_center_im(new))
     }
 }
+impl Default for OrbitTrapType {
+    fn default() -> Self {
+        Self::Point(OrbitTrapPoint::default())
+    }
+}
 
 /// Macro for the adding the editing orbit trap code as it's identical for each type.
 macro_rules! edit_orbit_trap {

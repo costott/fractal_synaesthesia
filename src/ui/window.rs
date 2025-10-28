@@ -1,7 +1,9 @@
 use macroquad::prelude::*;
 use std::sync::{Arc, Mutex};
 
-use crate::rendering::algorithms::render_algorithms::FractalParams;
+use crate::rendering::{
+    algorithms::render_algorithms::FractalParams, manager::layer_manager::LayerManager,
+};
 
 pub trait Window {
     fn is_open(&self) -> bool;
@@ -25,9 +27,27 @@ impl WindowParams {
             self.height as f32,
         )
     }
+
+    pub fn sized_area(
+        &self,
+        source: impl std::hash::Hash,
+        egui_ctx: &egui::Context,
+        add_contents: impl FnOnce(&mut egui::Ui),
+    ) {
+        egui::Area::new(egui::Id::new(source))
+            .fixed_pos(egui::pos2(self.x as f32, self.y as f32))
+            .show(egui_ctx, |ui| {
+                ui.set_min_size(egui::vec2(self.width as f32, self.height as f32));
+                ui.set_max_size(egui::vec2(self.width as f32, self.height as f32));
+
+                add_contents(ui);
+            });
+    }
 }
 
 pub struct WindowContext {
     pub fractal_params: Arc<Mutex<FractalParams>>,
     pub request_render: bool,
+    pub layer_manager: Arc<Mutex<LayerManager>>,
+    pub update_layers: bool,
 }

@@ -98,7 +98,7 @@ pub enum LayerAlgorithmKind {
     TriangleInequality {
         apower: f64,
     },
-    StripeAverageAlgorithm {
+    StripeAverage {
         skip_iteration: u32,
         stripe_density: f64,
     },
@@ -116,7 +116,7 @@ impl LayerAlgorithmKind {
             Self::TriangleInequality { apower } => {
                 LayerImplementation::TriangleInequality(TriangleInequalityAlgorithm::new(*apower))
             }
-            Self::StripeAverageAlgorithm {
+            Self::StripeAverage {
                 skip_iteration,
                 stripe_density,
             } => LayerImplementation::StripeAverage(StripeAverageAlgorithm::new(
@@ -130,6 +130,40 @@ impl LayerAlgorithmKind {
         match self {
             Self::Shading3D { .. } => LayerMappingKind::Shade,
             _ => LayerMappingKind::Blend,
+        }
+    }
+}
+impl crate::ui::Dropdown<LayerAlgorithmKind> for LayerAlgorithmKind {
+    fn get_variants() -> Vec<LayerAlgorithmKind> {
+        vec![
+            Self::Colour,
+            Self::OrbitTrap {
+                trap: OrbitTrapType::default(),
+            },
+            Self::Shading3D {
+                h2: Shading3DAlgorithm::DEFAULT_H2,
+                angle: Shading3DAlgorithm::DEFAULT_ANGLE,
+            },
+            Self::TriangleInequality {
+                apower: TriangleInequalityAlgorithm::DEFAULT_APOWER,
+            },
+            Self::StripeAverage {
+                skip_iteration: StripeAverageAlgorithm::DEFAULT_SKIP_ITERATION,
+                stripe_density: StripeAverageAlgorithm::DEFAULT_STRIPE_DENSITY,
+            },
+        ]
+    }
+
+    fn get_text(&self) -> &str {
+        match self {
+            Self::Colour => "Colour",
+            Self::OrbitTrap { trap: _ } => "Orbit Trap",
+            Self::Shading3D { h2: _, angle: _ } => "Shading3D",
+            Self::TriangleInequality { apower: _ } => "Triangle Inequality",
+            Self::StripeAverage {
+                skip_iteration: _,
+                stripe_density: _,
+            } => "Stripe Average",
         }
     }
 }
