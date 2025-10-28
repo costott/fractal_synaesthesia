@@ -17,63 +17,6 @@ impl ParamEditor {
             is_open: true,
         }
     }
-
-    /// Displays a labeled single-line text input for editing a parameter, and
-    /// synchronizes its value with external state via provided getter and setter closures.
-    ///
-    /// This helper abstracts the common egui boilerplate for numeric or string parameters
-    /// that are represented as editable text. It handles focus changes, updates the
-    /// underlying value when the field loses focus, and refreshes the displayed text
-    /// when the field is not focused.
-    ///
-    /// # Arguments
-    ///
-    /// * `ui`: The egui [`Ui`] instance to draw into.
-    /// * `label`: The text label to display beside the input box.
-    /// * `local_value` A mutable reference to the locally cached string representation
-    ///   of the parameter. This value is edited directly by the user.
-    /// * `get_value`: A closure returning the current string representation of the
-    ///   external parameter, used to refresh `local_value` when the text field is not focused.
-    /// * `set_value`: — closure that takes the newly entered string and applies it
-    ///   to the external parameter when the text field loses focus.
-    ///
-    /// # Returns
-    ///
-    /// Returns `true` if the external parameter was modified and a re-render
-    /// should be triggered, otherwise returns `false`.
-    fn text_param<FGet, FSet>(
-        ui: &mut egui::Ui,
-        label: &str,
-        local_value: &mut String,
-        get_value: FGet,
-        set_value: FSet,
-    ) -> bool
-    where
-        FGet: Fn() -> String,
-        FSet: Fn(String),
-    {
-        ui.label(
-            egui::RichText::new(label)
-                .font(egui::FontId::proportional(crate::ui::NORMAL_TEXT_SIZE)),
-        );
-
-        let response = ui.text_edit_singleline(local_value);
-        let mut request_render = false;
-
-        // Set render value when sumbitted
-        if response.lost_focus() {
-            set_value(local_value.clone());
-            request_render = true;
-        }
-
-        // Update UI value when not being changed by UI
-        if !response.has_focus() {
-            *local_value = get_value();
-        }
-
-        ui.end_row();
-        request_render
-    }
 }
 impl Window for ParamEditor {
     fn is_open(&self) -> bool {
@@ -93,7 +36,7 @@ impl Window for ParamEditor {
             egui::Grid::new("parameters_grid")
                 .num_columns(2)
                 .show(ui, |ui| {
-                    needs_render |= ParamEditor::text_param(
+                    needs_render |= crate::ui::text_param(
                         ui,
                         "Center (Re)",
                         &mut self.local_param_copy.center_re,
@@ -117,7 +60,7 @@ impl Window for ParamEditor {
                         },
                     );
 
-                    needs_render |= ParamEditor::text_param(
+                    needs_render |= crate::ui::text_param(
                         ui,
                         "Center (Im)",
                         &mut self.local_param_copy.center_im,
@@ -141,7 +84,7 @@ impl Window for ParamEditor {
                         },
                     );
 
-                    needs_render |= ParamEditor::text_param(
+                    needs_render |= crate::ui::text_param(
                         ui,
                         "Zoom",
                         &mut self.local_param_copy.zoom,
@@ -158,7 +101,7 @@ impl Window for ParamEditor {
                         },
                     );
 
-                    needs_render |= ParamEditor::text_param(
+                    needs_render |= crate::ui::text_param(
                         ui,
                         "Max Iterations",
                         &mut self.local_param_copy.max_iterations,

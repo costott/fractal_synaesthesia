@@ -175,6 +175,7 @@ pub enum LayerMappingKind {
 }
 
 /// Specifies the range of the fractal set a layer is applied to.
+#[derive(Clone, Copy, PartialEq, Eq)]
 #[repr(u8)]
 pub enum LayerRange {
     /// Only points in the fractal set
@@ -200,6 +201,19 @@ impl LayerRange {
             LayerRange::Both => covered_in_set && covered_out_set,
             LayerRange::InSet => covered_in_set,
             LayerRange::OutSet => covered_out_set,
+        }
+    }
+}
+impl crate::ui::Dropdown<LayerRange> for LayerRange {
+    fn get_variants() -> Vec<LayerRange> {
+        vec![LayerRange::InSet, LayerRange::OutSet, LayerRange::Both]
+    }
+
+    fn get_text(&self) -> &str {
+        match self {
+            LayerRange::InSet => "In set",
+            LayerRange::OutSet => "Out set",
+            LayerRange::Both => "Both",
         }
     }
 }
