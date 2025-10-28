@@ -13,6 +13,25 @@ pub enum OrbitTrapAnalysis {
     Imaginary,
     Angle,
 }
+impl crate::ui::Dropdown<OrbitTrapAnalysis> for OrbitTrapAnalysis {
+    fn get_variants() -> Vec<OrbitTrapAnalysis> {
+        vec![
+            OrbitTrapAnalysis::Distance,
+            OrbitTrapAnalysis::Real,
+            OrbitTrapAnalysis::Imaginary,
+            OrbitTrapAnalysis::Angle,
+        ]
+    }
+
+    fn get_text(&self) -> &str {
+        match self {
+            OrbitTrapAnalysis::Distance => "Distance",
+            OrbitTrapAnalysis::Real => "Real",
+            OrbitTrapAnalysis::Imaginary => "Imaginary",
+            OrbitTrapAnalysis::Angle => "Angle",
+        }
+    }
+}
 
 /// Operations every orbit trap should perform.
 pub trait OrbitTrap {
@@ -30,6 +49,7 @@ pub trait OrbitTrap {
     fn greatest_distance2(&self, bailout2: f64) -> f64;
 
     fn get_analysis(&self) -> OrbitTrapAnalysis;
+    fn get_analysis_mut(&mut self) -> &mut OrbitTrapAnalysis;
     fn set_analysis(&mut self, new: OrbitTrapAnalysis);
 
     /// Returns the real part of the center of the trap.
@@ -86,6 +106,9 @@ impl OrbitTrap for OrbitTrapType {
     fn get_analysis(&self) -> OrbitTrapAnalysis {
         delegate_orbit_trap_type!(self.get_analysis())
     }
+    fn get_analysis_mut(&mut self) -> &mut OrbitTrapAnalysis {
+        delegate_orbit_trap_type!(self.get_analysis_mut())
+    }
     fn set_analysis(&mut self, new: OrbitTrapAnalysis) {
         delegate_orbit_trap_type!(self.set_analysis(new))
     }
@@ -109,12 +132,32 @@ impl Default for OrbitTrapType {
         Self::Point(OrbitTrapPoint::default())
     }
 }
+impl crate::ui::Dropdown<OrbitTrapType> for OrbitTrapType {
+    fn get_variants() -> Vec<OrbitTrapType> {
+        vec![
+            OrbitTrapType::Point(OrbitTrapPoint::default()),
+            OrbitTrapType::Cross(OrbitTrapCross::default()),
+            OrbitTrapType::Circle(OrbitTrapCircle::default()),
+        ]
+    }
+
+    fn get_text(&self) -> &str {
+        match self {
+            OrbitTrapType::Point(_) => "Point",
+            OrbitTrapType::Cross(_) => "Cross",
+            OrbitTrapType::Circle(_) => "Circle",
+        }
+    }
+}
 
 /// Macro for the adding the editing orbit trap code as it's identical for each type.
 macro_rules! edit_orbit_trap {
     () => {
         fn get_analysis(&self) -> OrbitTrapAnalysis {
             self.analysis
+        }
+        fn get_analysis_mut(&mut self) -> &mut OrbitTrapAnalysis {
+            &mut self.analysis
         }
         fn set_analysis(&mut self, new: OrbitTrapAnalysis) {
             self.analysis = new;
@@ -141,9 +184,9 @@ macro_rules! edit_orbit_trap {
 /// An orbit trap which shape is a single point in the complex plane.
 #[derive(Clone, Debug)]
 pub struct OrbitTrapPoint {
-    center: Complex,
+    pub center: Complex,
     big_center: BigComplex,
-    analysis: OrbitTrapAnalysis,
+    pub analysis: OrbitTrapAnalysis,
 }
 impl OrbitTrapPoint {
     pub fn new(point: (f64, f64), analysis: OrbitTrapAnalysis) -> OrbitTrapPoint {
@@ -195,10 +238,10 @@ impl Eq for OrbitTrapPoint {}
 
 #[derive(Clone, Debug)]
 pub struct OrbitTrapCross {
-    center: Complex,
+    pub center: Complex,
     big_center: BigComplex,
     pub arm_length: f64,
-    analysis: OrbitTrapAnalysis,
+    pub analysis: OrbitTrapAnalysis,
 }
 impl OrbitTrapCross {
     pub fn new(centre: (f64, f64), arm_length: f64, analysis: OrbitTrapAnalysis) -> OrbitTrapCross {
@@ -285,10 +328,10 @@ impl Eq for OrbitTrapCross {}
 
 #[derive(Clone, Debug)]
 pub struct OrbitTrapCircle {
-    center: Complex,
+    pub center: Complex,
     big_center: BigComplex,
     pub radius: f64,
-    analysis: OrbitTrapAnalysis,
+    pub analysis: OrbitTrapAnalysis,
 }
 impl OrbitTrapCircle {
     pub fn new(centre: (f64, f64), radius: f64, analysis: OrbitTrapAnalysis) -> OrbitTrapCircle {
