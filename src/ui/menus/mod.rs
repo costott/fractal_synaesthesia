@@ -1,1 +1,1 @@
-pub mod param_editor;
+pub mod fractal_settings;

@@ -20,62 +20,11 @@ pub struct FractalVisualiser {
     pub canvas: FractalCanvas,
 }
 impl FractalVisualiser {
-    pub fn new(params: &FractalParams, canvas_dims: CanvasDimensions) -> Self {
-        let layer_manager = Arc::new(Mutex::new(LayerManager::new(
-            vec![
-                Layer::new(
-                    LayerAlgorithmKind::Colour,
-                    LayerRange::OutSet,
-                    1.0,
-                    Palette::new_even(
-                        vec![WHITE, ORANGE, BLUE, WHITE],
-                        PaletteMappingType::Repeated,
-                        0.1,
-                        0.1,
-                    ),
-                ),
-                // Layer::new(
-                //     LayerAlgorithmKind::StripeAverageAlgorithm {
-                //         skip_iteration: 1,
-                //         stripe_density: 6.0,
-                //     },
-                //     LayerRange::OutSet,
-                //     1.0,
-                //     Palette::new_even(
-                //         vec![RED, ORANGE, YELLOW, WHITE, ORANGE, RED],
-                //         PaletteMappingType::Repeated,
-                //         1.0,
-                //         0.3,
-                //     ),
-                // ),
-                // Layer::new(
-                //     LayerAlgorithmKind::Shading3D {
-                //         h2: 1.5,
-                //         angle: 45.0,
-                //     },
-                //     LayerRange::OutSet,
-                //     0.8,
-                //     Palette::default(),
-                // ),
-                // Layer::new(
-                //     LayerAlgorithmKind::OrbitTrap {
-                //         trap: OrbitTrapType::Point(OrbitTrapPoint::new(
-                //             (0.0, 0.0),
-                //             OrbitTrapAnalysis::Angle,
-                //         )),
-                //     },
-                //     LayerRange::InSet,
-                //     1.0,
-                //     Palette::new_even(
-                //         vec![WHITE, PINK, WHITE],
-                //         PaletteMappingType::Constant,
-                //         0.5,
-                //         0.0,
-                //     ),
-                // ),
-            ],
-            true,
-        )));
+    pub fn new(
+        params: &FractalParams,
+        canvas_dims: CanvasDimensions,
+        layer_manager: Arc<Mutex<LayerManager>>,
+    ) -> Self {
         let layer_renderer = LayersRenderer::new(Arc::clone(&layer_manager));
 
         // create initial reference orbit
@@ -97,12 +46,20 @@ impl FractalVisualiser {
         self.canvas.change_dimensions(canvas_dims);
     }
 
+    pub fn update_layers(&mut self) {
+        self.layer_renderer = LayersRenderer::new(Arc::clone(&self.layer_manager));
+    }
+
     pub fn update_render(&mut self, params: &Arc<Mutex<FractalParams>>) {
         self.reference_orbit = Arc::new(ReferenceOrbit::new(
             params,
             self.layer_renderer.max_bailout2,
         ));
-        self.layer_manager.lock().unwrap().generate_palettes(params.lock().unwrap().max_iterations as f32);
+        self.layer_manager
+            .lock()
+            .unwrap()
+            .generate_palettes(params.lock().unwrap().max_iterations as f32);
+
         self.canvas.update_render(
             &self.layer_renderer,
             Arc::clone(&params),

@@ -320,8 +320,8 @@ pub struct Shading3DAlgorithm {
     in_set: bool,
 }
 impl Shading3DAlgorithm {
-    const DEFAULT_H2: f64 = 1.5;
-    const DEFAULT_ANGLE: f64 = 45.0;
+    pub const DEFAULT_H2: f64 = 1.5;
+    pub const DEFAULT_ANGLE: f64 = 45.0;
     const DEFAULT_BAILOUT2: f64 = 1e8;
 
     fn factory(h2: f64, angle: f64, bailout2: f64) -> Self {
@@ -430,7 +430,7 @@ pub struct TriangleInequalityAlgorithm {
 impl TriangleInequalityAlgorithm {
     const DEFAULT_BAILOUT2: f64 = 1e40;
     /// Average power: skews values averaged by raising them to this power.
-    const DEFAULT_APOWER: f64 = 1.0;
+    pub const DEFAULT_APOWER: f64 = 1.0;
 
     fn factory(apower: f64, bailout2: f64) -> Self {
         Self {
@@ -558,6 +558,9 @@ pub struct StripeAverageAlgorithm {
 impl StripeAverageAlgorithm {
     const DEFAULT_BAILOUT2: f64 = 1e8;
 
+    pub const DEFAULT_SKIP_ITERATION: u32 = 1;
+    pub const DEFAULT_STRIPE_DENSITY: f64 = 1.0;
+
     fn factory(skip_iteration: u32, stripe_density: f64, bailout2: f64) -> Self {
         Self {
             bailout2,
@@ -655,6 +658,10 @@ impl LayerAlgorithm for StripeAverageAlgorithm {
 }
 impl Default for StripeAverageAlgorithm {
     fn default() -> Self {
-        Self::factory(1, 1.0, Self::DEFAULT_BAILOUT2)
+        Self::factory(
+            Self::DEFAULT_SKIP_ITERATION,
+            Self::DEFAULT_STRIPE_DENSITY,
+            Self::DEFAULT_BAILOUT2,
+        )
     }
 }
