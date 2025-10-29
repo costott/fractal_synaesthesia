@@ -70,6 +70,7 @@ impl Window for FractalWindow {
 
         if ctx.update_layers {
             self.fractal_visualiser.update_layers();
+            ctx.update_layers = false;
         }
 
         if changed || !self.initialised || ctx.request_render {

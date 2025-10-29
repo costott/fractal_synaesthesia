@@ -23,4 +23,8 @@ impl LayerManager {
             layer.palette.generate_palette(max_iterations);
         }
     }
+
+    pub fn add_layer(&mut self) {
+        self.layers.push(Layer::default());
+    }
 }

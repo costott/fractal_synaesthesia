@@ -24,7 +24,7 @@ impl Layer {
         assert!(0.0 <= strength && strength <= 1.0);
 
         Self {
-            name: "Layer".to_owned(),
+            name: "New layer".to_owned(),
             algorithm,
             application_range,
             strength,
@@ -78,7 +78,7 @@ impl Default for Layer {
         Self::new(
             LayerAlgorithmKind::Colour,
             LayerRange::OutSet,
-            1.,
+            0.,
             Palette::default(),
         )
     }

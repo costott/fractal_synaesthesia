@@ -12,7 +12,7 @@ use crate::{
 pub struct LayerSettings {
     params: WindowParams,
 
-    update_locals: bool,
+    pub update_locals: bool,
 
     palette_texture: Option<egui::TextureHandle>,
     local_specifics_copy: Option<LocalSpecificsCopy>,
@@ -35,6 +35,12 @@ impl LayerSettings {
     ) {
         let layer = &mut ctx.layer_manager.lock().unwrap().layers[selected_layer];
 
+        if self.update_locals {
+            self.local_specifics_copy = LocalSpecificsCopy::copy_from_algoritm(&layer.algorithm);
+            self.update_locals = false;
+            self.palette_texture = None;
+        }
+
         if self.palette_texture.is_none() {
             let palette = layer.palette.get_full_gradient(100.0, 100.0 * (9. / 16.));
             let color_image = egui::ColorImage::from_rgba_unmultiplied(
@@ -43,11 +49,6 @@ impl LayerSettings {
             );
             self.palette_texture =
                 Some(egui_ctx.load_texture("palette", color_image, egui::TextureOptions::NEAREST));
-        }
-
-        if self.update_locals {
-            self.local_specifics_copy = LocalSpecificsCopy::copy_from_algoritm(&layer.algorithm);
-            self.update_locals = false;
         }
 
         self.params.sized_area("layer_settings", egui_ctx, |ui| {
@@ -337,7 +338,7 @@ impl LayerSettings {
 
         if let Some(LocalSpecificsCopy::Shading3D {
             h2: local_h2,
-            angle: local_angle,
+            angle: _,
         }) = local_specifics_copy.as_mut()
         {
             let curr_h2 = h2.to_string();
@@ -353,18 +354,17 @@ impl LayerSettings {
                 },
             );
 
-            let curr_angle = angle.to_string();
-            layers_changed |= crate::ui::text_param(
-                ui,
-                "Angle (degrees)",
-                local_angle,
-                || curr_angle.clone(),
-                |new| {
-                    if let Ok(val) = new.parse::<f64>() {
-                        *angle = val;
-                    }
-                },
+            ui.label(
+                egui::RichText::new("Angle")
+                    .font(egui::FontId::proportional(crate::ui::NORMAL_TEXT_SIZE)),
             );
+
+            let response = ui.add(egui::Slider::new(angle, 0.0..=360.0));
+            if response.changed() {
+                layers_changed = true;
+            }
+
+            ui.end_row();
         }
 
         layers_changed

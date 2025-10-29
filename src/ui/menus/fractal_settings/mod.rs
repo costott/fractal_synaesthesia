@@ -7,6 +7,7 @@ use crate::{
             layer::{Layer, LayerAlgorithmKind, LayerRange},
             layer_manager::LayerManager,
         },
+        orbit_trap::{OrbitTrapAnalysis, OrbitTrapPoint, OrbitTrapType},
         palette::{Palette, PaletteMappingType},
     },
     types::BigComplex,
@@ -71,31 +72,31 @@ impl FractalSettingsMode {
                 //         0.3,
                 //     ),
                 // ),
-                // Layer::new(
-                //     LayerAlgorithmKind::Shading3D {
-                //         h2: 1.5,
-                //         angle: 45.0,
-                //     },
-                //     LayerRange::OutSet,
-                //     0.8,
-                //     Palette::default(),
-                // ),
-                // Layer::new(
-                //     LayerAlgorithmKind::OrbitTrap {
-                //         trap: OrbitTrapType::Point(OrbitTrapPoint::new(
-                //             (0.0, 0.0),
-                //             OrbitTrapAnalysis::Angle,
-                //         )),
-                //     },
-                //     LayerRange::InSet,
-                //     1.0,
-                //     Palette::new_even(
-                //         vec![WHITE, PINK, WHITE],
-                //         PaletteMappingType::Constant,
-                //         0.5,
-                //         0.0,
-                //     ),
-                // ),
+                Layer::new(
+                    LayerAlgorithmKind::Shading3D {
+                        h2: 1.5,
+                        angle: 45.0,
+                    },
+                    LayerRange::OutSet,
+                    0.8,
+                    Palette::default(),
+                ),
+                Layer::new(
+                    LayerAlgorithmKind::OrbitTrap {
+                        trap: OrbitTrapType::Point(OrbitTrapPoint::new(
+                            (0.0, 0.0),
+                            OrbitTrapAnalysis::Angle,
+                        )),
+                    },
+                    LayerRange::InSet,
+                    1.0,
+                    Palette::new_even(
+                        vec![WHITE, PINK, WHITE],
+                        PaletteMappingType::Constant,
+                        0.5,
+                        0.0,
+                    ),
+                ),
             ],
             true,
         )));
