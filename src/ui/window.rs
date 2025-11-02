@@ -51,7 +51,9 @@ impl WindowParams {
 pub struct WindowContext {
     pub fractal_params: Arc<Mutex<FractalParams>>,
     pub fractal_dims: CanvasDimensions,
+    pub rendering: bool,
     pub request_render: bool,
+    pub update_previews: bool,
     pub layer_manager: Arc<Mutex<LayerManager>>,
     pub update_layers: bool,
 }

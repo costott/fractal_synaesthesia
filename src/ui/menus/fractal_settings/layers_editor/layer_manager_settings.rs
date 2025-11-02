@@ -1,7 +1,6 @@
 use std::sync::{Arc, Mutex};
 
 use egui::load::SizedTexture;
-use macroquad::texture::Texture2D;
 
 use crate::{
     rendering::{
@@ -47,13 +46,17 @@ impl LayerManagerSettings {
         let layer_manager = &mut ctx.layer_manager.lock().unwrap();
 
         // Set length of layer previews
-        if self.layer_previews.len() != layer_manager.layers.len() {
-            self.layer_previews = vec![None; layer_manager.layers.len()];
+        while self.layer_previews.len() < layer_manager.layers.len() {
+            self.layer_previews.push(None);
         }
 
         // Render any previews that need updating
         for (layer_idx, layer_preview) in self.layer_previews.iter_mut().enumerate() {
-            if layer_preview.is_some() {
+            if ctx.rendering {
+                continue;
+            }
+
+            if !ctx.update_previews && layer_preview.is_some() {
                 continue;
             }
 
@@ -109,6 +112,7 @@ impl LayerManagerSettings {
                 egui::TextureOptions::NEAREST,
             ));
         }
+        ctx.update_previews = false;
 
         let mut selected_layer_changed = false;
 
@@ -137,7 +141,7 @@ impl LayerManagerSettings {
                 ui.add_space(5.0);
 
                 // TODO: cannot add during rendering
-                if ui.button("+").clicked() && !ctx.update_layers {
+                if ui.button("+").clicked() && !ctx.rendering {
                     layer_manager.add_layer();
                     ctx.update_layers = true;
                     ctx.request_render = true;
