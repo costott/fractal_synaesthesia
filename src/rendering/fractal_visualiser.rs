@@ -9,8 +9,6 @@ use crate::{
     ui::fractal::fractal_canvas::{CanvasDimensions, FractalCanvas},
 };
 
-use crate::rendering::orbit_trap::*;
-
 use macroquad::prelude::*;
 
 pub struct FractalVisualiser {
@@ -65,6 +63,18 @@ impl FractalVisualiser {
             Arc::clone(&params),
             Arc::clone(&self.reference_orbit),
         );
+    }
+
+    pub fn get_progress(&self) -> f32 {
+        self.canvas.get_progress()
+    }
+
+    pub fn finished_render(&self) -> bool {
+        self.canvas.finished_render()
+    }
+
+    pub fn rendered_image(&self) -> Arc<Mutex<Image>> {
+        self.canvas.image.clone()
     }
 
     pub fn draw(&self, x: f32, y: f32) {

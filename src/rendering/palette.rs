@@ -40,6 +40,7 @@ pub fn blend_colours(bg: Color, fg: Color, strength: f32) -> Color {
 }
 
 /// A colour palette used for assigning a colour to a given [`Layer`](crate::rendering::render_layer::Layer) output value.
+#[derive(Clone)]
 pub struct Palette {
     pub colour_map: ColourMap,
     pub mapping_type: PaletteMappingType,
@@ -222,6 +223,7 @@ impl Default for Palette {
 }
 
 /// Map of colour points that outlines the significant colours for a palette.
+#[derive(Clone)]
 pub struct ColourMap {
     inner: Vec<ColourPoint>,
 }
@@ -335,6 +337,7 @@ impl Into<ColourPoint> for (Color, f32) {
 }
 
 /// Determines how percentages map to colours for a palette.
+#[derive(Clone, Copy)]
 pub enum PaletteMappingType {
     /// The palette stays the same regardless of the max iterations.
     ///

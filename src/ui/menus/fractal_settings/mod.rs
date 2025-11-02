@@ -13,7 +13,7 @@ use crate::{
     types::BigComplex,
     ui::{
         AppModeScreen,
-        fractal::fractal_window::FractalWindow,
+        fractal::{fractal_canvas::CanvasDimensions, fractal_window::FractalWindow},
         window::{Window, WindowContext, WindowParams},
     },
 };
@@ -114,6 +114,10 @@ impl FractalSettingsMode {
             ),
             window_context: WindowContext {
                 fractal_params: Arc::new(Mutex::new(params)),
+                fractal_dims: CanvasDimensions {
+                    width: 800,
+                    height: 450,
+                },
                 request_render: false,
                 layer_manager: layer_manager.clone(),
                 update_layers: false,

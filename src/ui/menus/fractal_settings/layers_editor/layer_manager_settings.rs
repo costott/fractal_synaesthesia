@@ -1,10 +1,27 @@
-use crate::ui::{fractal, window::WindowParams};
+use std::sync::{Arc, Mutex};
+
+use egui::load::SizedTexture;
+use macroquad::texture::Texture2D;
+
+use crate::{
+    rendering::{
+        fractal_visualiser::FractalVisualiser,
+        manager::{
+            layer::{Layer, LayerMappingKind},
+            layer_manager::LayerManager,
+        },
+        palette::Palette,
+    },
+    ui::{fractal::fractal_canvas::CanvasDimensions, window::WindowParams},
+};
 
 pub struct LayerManagerSettings {
     params: WindowParams,
 
     dragging_index: Option<usize>,
     drop_target_index: Option<usize>,
+
+    layer_previews: Vec<Option<egui::TextureHandle>>,
 }
 impl LayerManagerSettings {
     pub fn new(params: WindowParams) -> Self {
@@ -12,7 +29,12 @@ impl LayerManagerSettings {
             params,
             dragging_index: None,
             drop_target_index: None,
+            layer_previews: vec![],
         }
+    }
+
+    pub fn layer_changed(&mut self, layer_idx: usize) {
+        self.layer_previews[layer_idx] = None;
     }
 
     /// Returns whether the selected layer changed
@@ -22,6 +44,72 @@ impl LayerManagerSettings {
         ctx: &mut crate::ui::window::WindowContext,
         selected_layer: &mut usize,
     ) -> bool {
+        let layer_manager = &mut ctx.layer_manager.lock().unwrap();
+
+        // Set length of layer previews
+        if self.layer_previews.len() != layer_manager.layers.len() {
+            self.layer_previews = vec![None; layer_manager.layers.len()];
+        }
+
+        // Render any previews that need updating
+        for (layer_idx, layer_preview) in self.layer_previews.iter_mut().enumerate() {
+            if layer_preview.is_some() {
+                continue;
+            }
+
+            let mut layer_clone = layer_manager.layers[layer_idx].clone();
+            layer_clone.strength = 1.0;
+            let layers_vector =
+                if layer_clone.algorithm.get_mapping_kind() == LayerMappingKind::Shade {
+                    let to_shade_layer = Layer::new(
+                        crate::rendering::manager::layer::LayerAlgorithmKind::Colour,
+                        crate::rendering::manager::layer::LayerRange::Both,
+                        1.0,
+                        Palette::new_even(
+                            vec![macroquad::prelude::WHITE, macroquad::prelude::WHITE],
+                            crate::rendering::palette::PaletteMappingType::Constant,
+                            1.0,
+                            0.0,
+                        ),
+                    );
+                    vec![to_shade_layer, layer_clone]
+                } else {
+                    vec![layer_clone]
+                };
+
+            let mut fractal_params = ctx.fractal_params.lock().unwrap().clone();
+            let canvas_dims =
+                CanvasDimensions::new_from_aspect_with_width(ctx.fractal_dims.aspect_ratio(), 60);
+            let width_proportion = ctx.fractal_dims.width as f64 / canvas_dims.width as f64;
+            fractal_params.pixel_step *= width_proportion;
+
+            let mut tmp_visualiser = FractalVisualiser::new(
+                &fractal_params,
+                canvas_dims,
+                Arc::new(Mutex::new(LayerManager::new(layers_vector, false))),
+            );
+
+            tmp_visualiser.update_render(&Arc::new(Mutex::new(fractal_params)));
+
+            // Wait for render to be complete
+            while !tmp_visualiser.finished_render() {}
+
+            let rendered_image = tmp_visualiser.rendered_image();
+            let rendered_image = rendered_image.lock().unwrap();
+            let color_image = egui::ColorImage::from_rgba_unmultiplied(
+                [
+                    rendered_image.width() as usize,
+                    rendered_image.height() as usize,
+                ],
+                &rendered_image.bytes,
+            );
+            *layer_preview = Some(egui_ctx.load_texture(
+                format!("preview_layer_{layer_idx}"),
+                color_image,
+                egui::TextureOptions::NEAREST,
+            ));
+        }
+
         let mut selected_layer_changed = false;
 
         self.params
@@ -48,13 +136,12 @@ impl LayerManagerSettings {
 
                 ui.add_space(5.0);
 
-                let layer_manager = &mut ctx.layer_manager.lock().unwrap();
-
                 // TODO: cannot add during rendering
                 if ui.button("+").clicked() && !ctx.update_layers {
                     layer_manager.add_layer();
                     ctx.update_layers = true;
                     ctx.request_render = true;
+                    return;
                 }
 
                 egui::ScrollArea::vertical().show(ui, |ui| {
@@ -77,6 +164,14 @@ impl LayerManagerSettings {
                                     ui.label(egui::RichText::new(layer.name.as_str()).font(
                                         egui::FontId::proportional(crate::ui::NORMAL_TEXT_SIZE),
                                     ));
+
+                                    if let Some(preview) = &self.layer_previews[layer_idx] {
+                                        let t = SizedTexture::from_handle(preview);
+
+                                        let image = egui::Image::from_texture(t);
+                                        ui.add(image);
+                                    }
+
                                     ui.vertical(|ui| {
                                         ui.label(egui::RichText::new("strength").font(
                                             egui::FontId::proportional(crate::ui::NORMAL_TEXT_SIZE),
@@ -91,7 +186,7 @@ impl LayerManagerSettings {
 
                                     ui.add_space(ui.available_width() - 30.);
 
-                                    let drag_icon = ui.label("⋮⋮");
+                                    let drag_icon = ui.label("...");
                                     let drag_icon_response = ui.interact(
                                         drag_icon.interact_rect,
                                         ui.make_persistent_id(format!("drag_icon_{layer_idx}")),
@@ -148,6 +243,9 @@ impl LayerManagerSettings {
                         let to_move = layer_manager.layers.remove(from);
                         let to_idx = if from < to { to - 1 } else { to };
                         layer_manager.layers.insert(to_idx, to_move);
+
+                        let to_move = self.layer_previews.remove(from);
+                        self.layer_previews.insert(to_idx, to_move);
 
                         ctx.update_layers = true;
                         ctx.request_render = true;
