@@ -27,13 +27,15 @@ impl LayerSettings {
         }
     }
 
+    /// Returns whether the layer has changed
     pub fn update(
         &mut self,
         egui_ctx: &egui::Context,
         ctx: &mut crate::ui::window::WindowContext,
         selected_layer: usize,
-    ) {
+    ) -> bool {
         let layer = &mut ctx.layer_manager.lock().unwrap().layers[selected_layer];
+        let mut layer_changed = false;
 
         if self.update_locals {
             self.local_specifics_copy = LocalSpecificsCopy::copy_from_algoritm(&layer.algorithm);
@@ -71,8 +73,7 @@ impl LayerSettings {
                             }
                         });
                     if layer.algorithm != before {
-                        ctx.update_layers = true;
-                        ctx.request_render = true;
+                        layer_changed = true;
                         self.update_locals = true;
                     }
 
@@ -105,8 +106,7 @@ impl LayerSettings {
                             }
                         });
                     if layer.application_range != before {
-                        ctx.update_layers = true;
-                        ctx.request_render = true;
+                        layer_changed = true;
                     }
 
                     ui.end_row();
@@ -114,14 +114,12 @@ impl LayerSettings {
 
             ui.separator();
 
-            let mut layers_changed = false;
-
             egui::Grid::new("specific_layer_settings_grid")
                 .num_columns(2)
                 .show(ui, |ui| match &mut layer.algorithm {
                     LayerAlgorithmKind::Colour => {}
                     LayerAlgorithmKind::OrbitTrap { trap } => {
-                        layers_changed |= LayerSettings::orbit_trap_settings(
+                        layer_changed |= LayerSettings::orbit_trap_settings(
                             ui,
                             trap,
                             &mut self.update_locals,
@@ -129,7 +127,7 @@ impl LayerSettings {
                         )
                     }
                     LayerAlgorithmKind::Shading3D { h2, angle } => {
-                        layers_changed |= LayerSettings::shading3d_settings(
+                        layer_changed |= LayerSettings::shading3d_settings(
                             ui,
                             h2,
                             angle,
@@ -137,7 +135,7 @@ impl LayerSettings {
                         );
                     }
                     LayerAlgorithmKind::TriangleInequality { apower } => {
-                        layers_changed |= LayerSettings::triangle_inequality_settings(
+                        layer_changed |= LayerSettings::triangle_inequality_settings(
                             ui,
                             apower,
                             &mut self.local_specifics_copy,
@@ -147,7 +145,7 @@ impl LayerSettings {
                         skip_iteration,
                         stripe_density,
                     } => {
-                        layers_changed |= LayerSettings::stripe_average_settings(
+                        layer_changed |= LayerSettings::stripe_average_settings(
                             ui,
                             skip_iteration,
                             stripe_density,
@@ -156,12 +154,13 @@ impl LayerSettings {
                         );
                     }
                 });
-
-            if layers_changed {
-                ctx.update_layers = true;
-                ctx.request_render = true;
-            }
         });
+
+        if layer_changed {
+            ctx.update_layers = true;
+            ctx.request_render = true;
+        }
+        layer_changed
     }
 
     fn orbit_trap_settings(

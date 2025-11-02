@@ -47,8 +47,15 @@ impl Window for LayersEditor {
 
     fn update(&mut self, egui_ctx: &egui::Context, ctx: &mut crate::ui::window::WindowContext) {
         self.params.sized_area("layers_editor", egui_ctx, |_| {
-            self.layer_settings
+            let is_changed = self
+                .layer_settings
                 .update(egui_ctx, ctx, self.selected_layer);
+
+            if is_changed {
+                self.layer_manager_settings
+                    .layer_changed(self.selected_layer);
+            }
+
             let selected_layer_changed =
                 self.layer_manager_settings
                     .update(egui_ctx, ctx, &mut self.selected_layer);

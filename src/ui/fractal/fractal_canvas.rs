@@ -1,3 +1,4 @@
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
 
@@ -14,6 +15,22 @@ pub struct CanvasDimensions {
     pub width: u16,
     pub height: u16,
 }
+impl CanvasDimensions {
+    pub fn new_from_aspect_with_width(aspect_ratio: f32, width: u16) -> Self {
+        Self {
+            width,
+            height: (width as f32 / aspect_ratio) as u16,
+        }
+    }
+
+    pub fn total_pixels(&self) -> usize {
+        self.width as usize * self.height as usize
+    }
+
+    pub fn aspect_ratio(&self) -> f32 {
+        self.width as f32 / self.height as f32
+    }
+}
 impl From<(u16, u16)> for CanvasDimensions {
     fn from(value: (u16, u16)) -> Self {
         Self {
@@ -25,10 +42,11 @@ impl From<(u16, u16)> for CanvasDimensions {
 
 /// UI canvas to render the fractal to
 pub struct FractalCanvas {
-    image: Arc<Mutex<Image>>,
+    pub image: Arc<Mutex<Image>>,
     pub dims: CanvasDimensions,
     texture: Texture2D,
     renderer: Renderer,
+    progress: Arc<AtomicUsize>,
 }
 impl FractalCanvas {
     pub fn new(dimensions: CanvasDimensions) -> Self {
@@ -46,6 +64,7 @@ impl FractalCanvas {
             dims: dimensions,
             texture,
             renderer,
+            progress: Arc::new(AtomicUsize::new(0)),
         }
     }
 
@@ -59,12 +78,14 @@ impl FractalCanvas {
     }
 
     pub fn update_render(
-        &self,
+        &mut self,
         layer_renderer: &LayersRenderer,
         fractal_params: Arc<Mutex<FractalParams>>,
         reference_orbit: Arc<ReferenceOrbit>,
     ) {
         self.renderer.cancel_current_render();
+        self.progress = Arc::new(AtomicUsize::new(0));
+
         let rx = self.renderer.spawn_render_tasks(
             self.dims,
             layer_renderer,
@@ -73,12 +94,24 @@ impl FractalCanvas {
         );
 
         let image_clone = Arc::clone(&self.image);
+        let progress_clone = Arc::clone(&self.progress);
         thread::spawn(move || {
             for (x, y, colour) in rx.iter() {
                 let mut img = image_clone.lock().unwrap();
                 img.set_pixel(x, y, colour);
+                progress_clone.fetch_add(1, Ordering::Relaxed);
             }
         });
+    }
+
+    pub fn get_progress(&self) -> f32 {
+        let progress = self.progress.load(Ordering::Relaxed);
+        progress as f32 / (self.dims.width * self.dims.height) as f32
+    }
+
+    pub fn finished_render(&self) -> bool {
+        let progress = self.progress.load(Ordering::Relaxed);
+        progress == (self.dims.width * self.dims.height) as usize
     }
 
     pub fn draw(&self, x: f32, y: f32) {

@@ -7,6 +7,7 @@ use crate::rendering::{
 use macroquad::prelude::*;
 
 /// An individual rendering layer
+#[derive(Clone)]
 pub struct Layer {
     pub name: String,
     pub algorithm: LayerAlgorithmKind,
@@ -169,6 +170,7 @@ impl crate::ui::Dropdown<LayerAlgorithmKind> for LayerAlgorithmKind {
 }
 
 #[repr(u8)]
+#[derive(PartialEq, Eq)]
 pub enum LayerMappingKind {
     Blend,
     Shade,
