@@ -73,11 +73,17 @@ impl Window for FractalWindow {
             ctx.update_layers = false;
         }
 
+        if ctx.rendering && self.fractal_visualiser.finished_render() {
+            ctx.rendering = false;
+        }
+
         if changed || !self.initialised || ctx.request_render {
             self.fractal_visualiser
                 .update_render(&Arc::clone(&ctx.fractal_params));
             self.initialised = true;
+            ctx.rendering = true;
             ctx.request_render = false;
+            ctx.update_previews = true;
         }
     }
 }

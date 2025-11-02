@@ -106,12 +106,12 @@ impl FractalCanvas {
 
     pub fn get_progress(&self) -> f32 {
         let progress = self.progress.load(Ordering::Relaxed);
-        progress as f32 / (self.dims.width * self.dims.height) as f32
+        progress as f32 / self.dims.total_pixels() as f32
     }
 
     pub fn finished_render(&self) -> bool {
         let progress = self.progress.load(Ordering::Relaxed);
-        progress == (self.dims.width * self.dims.height) as usize
+        progress == self.dims.total_pixels()
     }
 
     pub fn draw(&self, x: f32, y: f32) {
