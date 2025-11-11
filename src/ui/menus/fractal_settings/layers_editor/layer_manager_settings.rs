@@ -112,7 +112,9 @@ impl LayerManagerSettings {
                 egui::TextureOptions::NEAREST,
             ));
         }
-        ctx.update_previews = false;
+        if !ctx.rendering {
+            ctx.update_previews = false;
+        }
 
         let mut selected_layer_changed = false;
 
@@ -174,6 +176,8 @@ impl LayerManagerSettings {
 
                                         let image = egui::Image::from_texture(t);
                                         ui.add(image);
+                                    } else {
+                                        ui.add_space(60.0 + ui.spacing().item_spacing.x);
                                     }
 
                                     ui.vertical(|ui| {

@@ -1,3 +1,4 @@
+use egui::Rgba;
 /// A colour palette used for rendering
 use macroquad::prelude::*;
 use std::collections::HashSet;
@@ -37,6 +38,40 @@ fn alpha_blend(bg: Color, fg: Color) -> Color {
 pub fn blend_colours(bg: Color, fg: Color, strength: f32) -> Color {
     let scaled_fg = fg.with_alpha(fg.a * strength);
     alpha_blend(bg, scaled_fg)
+}
+
+pub fn color_to_rbga(color: Color) -> egui::Rgba {
+    fn srgb_to_linear(c: f32) -> f32 {
+        if c <= 0.04045 {
+            c / 12.92
+        } else {
+            ((c + 0.055) / 1.055).powf(2.4)
+        }
+    }
+
+    egui::Rgba::from_rgba_premultiplied(
+        srgb_to_linear(color.r),
+        srgb_to_linear(color.g),
+        srgb_to_linear(color.b),
+        color.a,
+    )
+}
+
+pub fn rgba_to_color(rgba: Rgba) -> Color {
+    fn linear_to_srgb(c: f32) -> f32 {
+        if c <= 0.0031308 {
+            c * 12.92
+        } else {
+            1.055 * c.powf(1.0 / 2.4) - 0.055
+        }
+    }
+
+    Color::new(
+        linear_to_srgb(rgba.r()),
+        linear_to_srgb(rgba.g()),
+        linear_to_srgb(rgba.b()),
+        rgba.a(),
+    )
 }
 
 /// A colour palette used for assigning a colour to a given [`Layer`](crate::rendering::render_layer::Layer) output value.
@@ -96,6 +131,10 @@ impl Palette {
     pub fn get_length(&self) -> f32 {
         self.length
     }
+    pub fn get_length_mut(&mut self) -> &mut f32 {
+        &mut self.length
+    }
+
     /// Set the length to `new` and return whether or not the length was changed.
     pub fn set_length(&mut self, new: f32) -> bool {
         assert!(0.0 < new && new <= 1.);
@@ -109,6 +148,10 @@ impl Palette {
     pub fn get_offset(&self) -> f32 {
         self.offset
     }
+    pub fn get_offset_mut(&mut self) -> &mut f32 {
+        &mut self.offset
+    }
+
     /// Set the offset to `new` and return whether or not the offset was changed.
     pub fn set_offset(&mut self, new: f32) -> bool {
         assert!(0.0 <= new && new <= 1.);
@@ -209,6 +252,10 @@ impl Palette {
 
         Texture2D::from_image(&image)
     }
+
+    pub fn add_point(&mut self, percentage: f32) {
+        self.colour_map.add_point(percentage);
+    }
 }
 impl Default for Palette {
     fn default() -> Self {
@@ -267,7 +314,7 @@ impl ColourMap {
         Self { inner: sorted }
     }
 
-    fn get_colour_at_percentage(&self, percent: f32) -> Color {
+    pub fn get_colour_at_percentage(&self, percent: f32) -> Color {
         let sorted = self.sort().inner;
         // index of the colour point immediately after the given percentage
         let next_i = sorted
@@ -281,6 +328,17 @@ impl ColourMap {
             next.colour,
             (percent - prev.percent_pos) / (next.percent_pos - prev.percent_pos),
         )
+    }
+
+    pub fn get_map(&mut self) -> &mut Vec<ColourPoint> {
+        &mut self.inner
+    }
+
+    pub fn add_point(&mut self, percent: f32) {
+        self.inner.push(ColourPoint {
+            percent_pos: percent,
+            colour: self.get_colour_at_percentage(percent),
+        });
     }
 }
 impl Default for ColourMap {
@@ -337,7 +395,7 @@ impl Into<ColourPoint> for (Color, f32) {
 }
 
 /// Determines how percentages map to colours for a palette.
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub enum PaletteMappingType {
     /// The palette stays the same regardless of the max iterations.
     ///
@@ -345,4 +403,16 @@ pub enum PaletteMappingType {
     Constant,
     /// The palette length stays the same, being extended further with a higher max iterations.
     Repeated,
+}
+impl crate::ui::Dropdown<PaletteMappingType> for PaletteMappingType {
+    fn get_variants() -> Vec<PaletteMappingType> {
+        [PaletteMappingType::Constant, PaletteMappingType::Repeated].into()
+    }
+
+    fn get_text(&self) -> &str {
+        match self {
+            PaletteMappingType::Constant => "Constant",
+            PaletteMappingType::Repeated => "Repeated",
+        }
+    }
 }

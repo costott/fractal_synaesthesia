@@ -141,7 +141,6 @@ impl ColourAlgorithm {
 
     pub fn new() -> Self {
         Self {
-            output: 0.0,
             ..Default::default()
         }
     }

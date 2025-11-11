@@ -72,7 +72,7 @@ impl RenderTask {
                 ) {
                     Ok(c) => c,
                     Err(e) => {
-                        eprintln!("{:?}", e);
+                        // eprintln!("{:?}", e);
                         macroquad::color::RED // fail visibly
                     }
                 };

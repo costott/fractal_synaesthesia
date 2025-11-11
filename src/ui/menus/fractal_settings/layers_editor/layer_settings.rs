@@ -6,7 +6,11 @@ use crate::{
         orbit_trap::{OrbitTrap, OrbitTrapAnalysis, OrbitTrapType},
     },
     types::ComplexNumber,
-    ui::{Dropdown, window::WindowParams},
+    ui::{
+        Dropdown,
+        menus::fractal_settings::layers_editor::palette_editor::PaletteEditor,
+        window::{Window, WindowParams},
+    },
 };
 
 pub struct LayerSettings {
@@ -16,6 +20,8 @@ pub struct LayerSettings {
 
     palette_texture: Option<egui::TextureHandle>,
     local_specifics_copy: Option<LocalSpecificsCopy>,
+
+    palette_editor: PaletteEditor,
 }
 impl LayerSettings {
     pub fn new(params: WindowParams) -> Self {
@@ -24,7 +30,13 @@ impl LayerSettings {
             update_locals: true,
             palette_texture: None,
             local_specifics_copy: None,
+            palette_editor: PaletteEditor::new(params),
         }
+    }
+
+    pub fn selected_layer_changed(&mut self) {
+        self.update_locals = true;
+        self.palette_editor.close();
     }
 
     /// Returns whether the layer has changed
@@ -34,6 +46,10 @@ impl LayerSettings {
         ctx: &mut crate::ui::window::WindowContext,
         selected_layer: usize,
     ) -> bool {
+        if self.palette_editor.is_open() {
+            return self.palette_editor.update(egui_ctx, ctx);
+        }
+
         let layer = &mut ctx.layer_manager.lock().unwrap().layers[selected_layer];
         let mut layer_changed = false;
 
@@ -63,16 +79,7 @@ impl LayerSettings {
                             .font(egui::FontId::proportional(crate::ui::NORMAL_TEXT_SIZE)),
                     );
 
-                    let before = layer.algorithm.clone();
-                    egui::ComboBox::from_id_salt("formula")
-                        .selected_text(layer.algorithm.get_text())
-                        .show_ui(ui, |ui| {
-                            for item in LayerAlgorithmKind::get_variants() {
-                                let text = item.get_text().to_string();
-                                ui.selectable_value(&mut layer.algorithm, item, text);
-                            }
-                        });
-                    if layer.algorithm != before {
+                    if crate::ui::show_dropdown(ui, &mut layer.algorithm, "formula") {
                         layer_changed = true;
                         self.update_locals = true;
                     }
@@ -87,7 +94,10 @@ impl LayerSettings {
                     let t =
                         SizedTexture::from_handle(&self.palette_texture.as_ref().unwrap().clone());
                     let image = egui::Image::from_texture(t);
-                    ui.add(ImageButton::new(image));
+                    let response = ui.add(ImageButton::new(image));
+                    if response.clicked() {
+                        self.palette_editor.open(selected_layer);
+                    }
 
                     ui.end_row();
 
@@ -96,16 +106,11 @@ impl LayerSettings {
                             .font(egui::FontId::proportional(crate::ui::NORMAL_TEXT_SIZE)),
                     );
 
-                    let before = layer.application_range;
-                    egui::ComboBox::from_id_salt("application range")
-                        .selected_text(layer.application_range.get_text())
-                        .show_ui(ui, |ui| {
-                            for item in LayerRange::get_variants() {
-                                let text = item.get_text().to_string();
-                                ui.selectable_value(&mut layer.application_range, item, text);
-                            }
-                        });
-                    if layer.application_range != before {
+                    if crate::ui::show_dropdown(
+                        ui,
+                        &mut layer.application_range,
+                        "application range",
+                    ) {
                         layer_changed = true;
                     }
 
@@ -156,10 +161,6 @@ impl LayerSettings {
                 });
         });
 
-        if layer_changed {
-            ctx.update_layers = true;
-            ctx.request_render = true;
-        }
         layer_changed
     }
 
@@ -179,16 +180,7 @@ impl LayerSettings {
                 .font(egui::FontId::proportional(crate::ui::NORMAL_TEXT_SIZE)),
         );
 
-        let before = trap.get_text().to_string();
-        egui::ComboBox::from_id_salt("orbit_trap_type")
-            .selected_text(trap.get_text())
-            .show_ui(ui, |ui| {
-                for item in OrbitTrapType::get_variants() {
-                    let text = item.get_text().to_string();
-                    ui.selectable_value(trap, item, text);
-                }
-            });
-        if trap.get_text() != before {
+        if crate::ui::show_dropdown(ui, trap, "orbit trap type") {
             layers_changed = true;
             *update_locals = true;
         }
@@ -200,16 +192,7 @@ impl LayerSettings {
                 .font(egui::FontId::proportional(crate::ui::NORMAL_TEXT_SIZE)),
         );
 
-        let before = trap.get_analysis().get_text().to_string();
-        egui::ComboBox::from_id_salt("orbit_trap_analysis")
-            .selected_text(trap.get_analysis().get_text())
-            .show_ui(ui, |ui| {
-                for item in OrbitTrapAnalysis::get_variants() {
-                    let text = item.get_text().to_string();
-                    ui.selectable_value(trap.get_analysis_mut(), item, text);
-                }
-            });
-        if trap.get_analysis().get_text() != before {
+        if crate::ui::show_dropdown(ui, trap.get_analysis_mut(), "orbit trap analysis") {
             layers_changed = true;
         }
 

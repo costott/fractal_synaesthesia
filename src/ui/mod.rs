@@ -75,9 +75,26 @@ impl AudioMapperMode {
 }
 impl AppModeScreen for AudioMapperMode {}
 
-pub trait Dropdown<T> {
+pub trait Dropdown<T>: Clone + PartialEq {
     fn get_variants() -> Vec<T>;
     fn get_text(&self) -> &str;
+}
+
+/// Displays a `Combobox` and returns whether the current value was changed
+fn show_dropdown<T>(ui: &mut egui::Ui, current_val: &mut T, id_salt: impl std::hash::Hash) -> bool
+where
+    T: Dropdown<T>,
+{
+    let before = current_val.clone();
+    egui::ComboBox::from_id_salt(id_salt)
+        .selected_text(current_val.get_text())
+        .show_ui(ui, |ui| {
+            for item in T::get_variants() {
+                let text = item.get_text().to_string();
+                ui.selectable_value(current_val, item, text);
+            }
+        });
+    *current_val != before
 }
 
 /// Displays a labeled single-line text input for editing a parameter, and
@@ -90,7 +107,7 @@ pub trait Dropdown<T> {
 ///
 /// # Arguments
 ///
-/// * `ui`: The egui [`Ui`] instance to draw into.
+/// * `ui`: The egui [`egui::Ui`] instance to draw into.
 /// * `label`: The text label to display beside the input box.
 /// * `local_value` A mutable reference to the locally cached string representation
 ///   of the parameter. This value is edited directly by the user.
@@ -134,4 +151,29 @@ where
 
     ui.end_row();
     request_render
+}
+
+fn get_texture_handle_from_texture2d(
+    egui_ctx: &egui::Context,
+    texture2d: Texture2D,
+    name: impl Into<String>,
+) -> egui::TextureHandle {
+    let color_image = egui::ColorImage::from_rgba_unmultiplied(
+        [texture2d.width() as usize, texture2d.height() as usize],
+        &texture2d.get_texture_data().bytes,
+    );
+    egui_ctx.load_texture(name, color_image, egui::TextureOptions::NEAREST)
+}
+
+fn draw_image_from_handle(
+    ui: &mut egui::Ui,
+    handle: &egui::TextureHandle,
+) -> (egui::Rect, egui::Response) {
+    let t = egui::load::SizedTexture::from_handle(&handle);
+    let image = egui::Image::from_texture(t);
+    let (rect, response) =
+        ui.allocate_exact_size(image.size().unwrap(), egui::Sense::click_and_drag());
+    image.paint_at(ui, rect);
+
+    (rect, response)
 }
