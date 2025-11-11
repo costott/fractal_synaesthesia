@@ -155,7 +155,7 @@ pub fn analyse_pixel(
         let z = *ref_z + dz;
         let mod_z = z.abs_squared();
 
-        // Bailing out / contiuing
+        // Bailing out / continuing
         let mut all_bailed = true;
         for (idx, im) in implementations.iter_mut().enumerate() {
             if bailed_out[idx] {

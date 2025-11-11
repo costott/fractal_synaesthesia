@@ -4,6 +4,7 @@ mod layer_settings;
 use layer_settings::LayerSettings;
 mod layer_manager_settings;
 use layer_manager_settings::LayerManagerSettings;
+mod palette_editor;
 
 pub struct LayersEditor {
     params: WindowParams,
@@ -54,6 +55,8 @@ impl Window for LayersEditor {
             if is_changed {
                 self.layer_manager_settings
                     .layer_changed(self.selected_layer);
+                ctx.update_layers = true;
+                ctx.request_render = true;
             }
 
             let selected_layer_changed =
@@ -61,7 +64,7 @@ impl Window for LayersEditor {
                     .update(egui_ctx, ctx, &mut self.selected_layer);
 
             if selected_layer_changed {
-                self.layer_settings.update_locals = true;
+                self.layer_settings.selected_layer_changed();
             }
         });
     }
