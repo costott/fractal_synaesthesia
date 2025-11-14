@@ -400,8 +400,12 @@ pub enum PaletteMappingType {
     /// The palette stays the same regardless of the max iterations.
     ///
     /// Higher max iterations = more iteration points used to represent the same palette.
+    ///
+    /// % Iteration -> Colour constant
     Constant,
     /// The palette length stays the same, being extended further with a higher max iterations.
+    ///
+    /// Iteration -> Colour constant
     Repeated,
 }
 impl crate::ui::Dropdown<PaletteMappingType> for PaletteMappingType {
@@ -411,8 +415,8 @@ impl crate::ui::Dropdown<PaletteMappingType> for PaletteMappingType {
 
     fn get_text(&self) -> &str {
         match self {
-            PaletteMappingType::Constant => "Constant",
-            PaletteMappingType::Repeated => "Repeated",
+            PaletteMappingType::Constant => "Percentage",
+            PaletteMappingType::Repeated => "Iteration",
         }
     }
 }
