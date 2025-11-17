@@ -256,6 +256,10 @@ impl Palette {
     pub fn add_point(&mut self, percentage: f32) {
         self.colour_map.add_point(percentage);
     }
+
+    pub fn remove_point(&mut self, index: usize) {
+        self.colour_map.remove_point(index);
+    }
 }
 impl Default for Palette {
     fn default() -> Self {
@@ -340,6 +344,10 @@ impl ColourMap {
             colour: self.get_colour_at_percentage(percent),
         });
     }
+
+    pub fn remove_point(&mut self, index: usize) {
+        self.inner.remove(index);
+    }
 }
 impl Default for ColourMap {
     fn default() -> Self {
@@ -403,7 +411,7 @@ pub enum PaletteMappingType {
     ///
     /// % Iteration -> Colour constant
     Constant,
-    /// The palette length stays the same, being extended further with a higher max iterations.
+    /// The palette length stays the same, being repeated further with a higher max iterations.
     ///
     /// Iteration -> Colour constant
     Repeated,
