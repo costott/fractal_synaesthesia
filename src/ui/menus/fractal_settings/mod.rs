@@ -55,7 +55,7 @@ impl FractalSettingsMode {
                         vec![WHITE, ORANGE, BLUE, WHITE],
                         PaletteMappingType::Repeated,
                         0.1,
-                        0.1,
+                        0.7,
                     ),
                 ),
                 // Layer::new(

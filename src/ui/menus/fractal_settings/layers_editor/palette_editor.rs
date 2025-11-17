@@ -11,7 +11,7 @@ struct PaletteTextures {
 struct EditingPalette {
     layer_index: usize,
     textures: Option<PaletteTextures>,
-    selected_point: usize,
+    selected_point_index: usize,
 }
 
 pub struct PaletteEditor {
@@ -35,7 +35,7 @@ impl PaletteEditor {
         self.editing_palette = Some(EditingPalette {
             layer_index,
             textures: None,
-            selected_point: 0,
+            selected_point_index: 0,
         });
     }
 
@@ -119,7 +119,7 @@ impl PaletteEditor {
                         // let c: [u8; 4] = point.colour.into();
                         // let c32 = egui::Color32::from_rgba_premultiplied(c[0], c[1], c[2], c[3]);
                         let c = color_to_rbga(point.colour);
-                        let bg_colour = if editing_palette.selected_point == i {
+                        let bg_colour = if editing_palette.selected_point_index == i {
                             egui::Color32::GRAY
                         } else {
                             egui::Color32::DARK_GRAY
@@ -184,7 +184,7 @@ impl PaletteEditor {
                         }
 
                         if point_response.clicked() || point_response.dragged() {
-                            editing_palette.selected_point = i;
+                            editing_palette.selected_point_index = i;
                         }
 
                         if point_response.dragged() {
@@ -210,8 +210,8 @@ impl PaletteEditor {
                                 .font(egui::FontId::proportional(crate::ui::NORMAL_TEXT_SIZE)),
                         );
 
-                        let selected_point =
-                            &mut layer.palette.colour_map.get_map()[editing_palette.selected_point];
+                        let selected_point = &mut layer.palette.colour_map.get_map()
+                            [editing_palette.selected_point_index];
                         let mut rgba = color_to_rbga(selected_point.colour);
                         let response = egui::color_picker::color_edit_button_rgba(
                             ui,
@@ -220,6 +220,16 @@ impl PaletteEditor {
                         );
                         if response.changed() {
                             selected_point.colour = rgba_to_color(rgba);
+                            changed_gradient = true;
+                            changed_layer = true;
+                        }
+
+                        // delete button
+                        if ui.button("🗑").clicked() {
+                            layer
+                                .palette
+                                .remove_point(editing_palette.selected_point_index);
+                            editing_palette.selected_point_index = 0;
                             changed_gradient = true;
                             changed_layer = true;
                         }
