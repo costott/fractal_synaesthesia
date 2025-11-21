@@ -149,6 +149,7 @@ impl AppModeScreen for FractalSettingsMode {
     fn draw(&self) {
         clear_background(WHITE);
 
+        // background behind main fractal
         draw_rectangle(
             self.sidebar.params.width as f32,
             self.controls.params.height as f32,

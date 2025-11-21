@@ -30,6 +30,14 @@ impl Window for Controls {
                 ],
                 egui::Stroke::new(2.0, egui::Color32::BLACK),
             );
+
+            ui.horizontal_centered(|ui| {
+                ui.add_space(10.0);
+
+                ui.button("[PH] screenshot");
+                ui.button("[PH] save paramaters");
+                ui.button("[PH] load from file");
+            });
         });
     }
 }

@@ -116,8 +116,6 @@ impl PaletteEditor {
                         let x = palette_rect.left() + point.percent_pos * palette_rect.width();
                         let top_y = palette_rect.bottom();
 
-                        // let c: [u8; 4] = point.colour.into();
-                        // let c32 = egui::Color32::from_rgba_premultiplied(c[0], c[1], c[2], c[3]);
                         let c = color_to_rbga(point.colour);
                         let bg_colour = if editing_palette.selected_point_index == i {
                             egui::Color32::GRAY

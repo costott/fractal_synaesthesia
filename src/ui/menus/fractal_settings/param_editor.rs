@@ -31,8 +31,6 @@ impl Window for ParamEditor {
         let mut needs_render = false;
 
         self.params.sized_area("params", egui_ctx, |ui| {
-            // TODO: menu doesn't update during a render
-
             egui::Grid::new("parameters_grid")
                 .num_columns(2)
                 .show(ui, |ui| {
@@ -40,6 +38,7 @@ impl Window for ParamEditor {
                         ui,
                         "Center (Re)",
                         &mut self.local_param_copy.center_re,
+                        ctx.rendering,
                         || {
                             ctx.fractal_params
                                 .lock()
@@ -64,6 +63,7 @@ impl Window for ParamEditor {
                         ui,
                         "Center (Im)",
                         &mut self.local_param_copy.center_im,
+                        ctx.rendering,
                         || {
                             ctx.fractal_params
                                 .lock()
@@ -88,6 +88,7 @@ impl Window for ParamEditor {
                         ui,
                         "Zoom",
                         &mut self.local_param_copy.zoom,
+                        ctx.rendering,
                         || {
                             (crate::ui::menus::fractal_settings::START_PIXEL_STEP
                                 / ctx.fractal_params.lock().unwrap().pixel_step)
@@ -105,6 +106,7 @@ impl Window for ParamEditor {
                         ui,
                         "Max Iterations",
                         &mut self.local_param_copy.max_iterations,
+                        ctx.rendering,
                         || {
                             ctx.fractal_params
                                 .lock()
@@ -125,7 +127,7 @@ impl Window for ParamEditor {
                     );
 
                     let mut angle_deg = ctx.fractal_params.lock().unwrap().rotation.to_degrees();
-                    let response = ui.add(egui::Slider::new(&mut angle_deg, 0.0..=360.0));
+                    let response = ui.add(egui::Slider::new(&mut angle_deg, -180.0..=180.0));
                     if response.changed() {
                         ctx.fractal_params.lock().unwrap().rotation = angle_deg.to_radians();
                         needs_render = true;
@@ -133,10 +135,6 @@ impl Window for ParamEditor {
                     ui.end_row();
                 });
         });
-
-        // egui::Area::new(egui::Id::new("params"))
-        //     .fixed_pos(egui::pos2(self.params.x as f32, self.params.y as f32))
-        //     .show(egui_ctx, |ui| {});
 
         if needs_render {
             ctx.request_render = true;

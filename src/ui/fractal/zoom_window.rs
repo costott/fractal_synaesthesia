@@ -179,26 +179,20 @@ impl ZoomWindowCreator {
     }
 
     fn apply_zoom(&self, window_rect: Rect, fractal_params: Arc<Mutex<FractalParams>>) {
-        let params = fractal_params.lock().unwrap();
-        let pixel_step = params.pixel_step;
-        let big_pixel_step = FBig::try_from(pixel_step).unwrap();
-        let rotation = params.rotation;
-        drop(params);
+        let mut params = fractal_params.lock().unwrap();
+        let big_pixel_step = FBig::try_from(params.pixel_step).unwrap();
 
         let delta = self.center - window_rect.center();
         let dc = BigComplex::new(
             FBig::try_from(delta.x).unwrap() * big_pixel_step.clone(),
             -FBig::try_from(delta.y).unwrap() * big_pixel_step,
         )
-        .rotate(-rotation);
+        .rotate(-params.rotation);
 
         let window_fraction = self.size.x / window_rect.w as f32;
 
-        let params = fractal_params.lock().unwrap();
         let new_center = params.center.lock().unwrap().clone().safe_add(&dc);
-        drop(params);
 
-        let mut params = fractal_params.lock().unwrap();
         *params.center.lock().unwrap() = new_center;
         params.pixel_step *= window_fraction as f64;
         params.rotation += self.rotation_vector.to_angle() as f64;

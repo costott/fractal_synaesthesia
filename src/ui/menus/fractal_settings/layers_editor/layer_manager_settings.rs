@@ -142,9 +142,25 @@ impl LayerManagerSettings {
 
                 ui.add_space(5.0);
 
-                // TODO: cannot add during rendering
-                if ui.button("+").clicked() && !ctx.rendering {
-                    layer_manager.add_layer();
+                // Add and delete buttons
+                let mut changed_layer_num = false;
+                ui.horizontal(|ui| {
+                    ui.add_space(10.0);
+                    if ui.button("+").clicked() && !ctx.rendering {
+                        layer_manager.add_layer();
+                        changed_layer_num = true;
+                    }
+
+                    ui.add_space(ui.available_width() - 25.0);
+
+                    if ui.button("-").clicked() {
+                        layer_manager.remove_layer(*selected_layer);
+                        self.layer_previews.remove(*selected_layer);
+                        *selected_layer = 0;
+                        changed_layer_num = true;
+                    }
+                });
+                if changed_layer_num {
                     ctx.update_layers = true;
                     ctx.request_render = true;
                     return;
@@ -167,10 +183,7 @@ impl LayerManagerSettings {
                                 ui.set_max_width(self.params.width as f32 - 8.0);
 
                                 ui.horizontal(|ui| {
-                                    ui.label(egui::RichText::new(layer.name.as_str()).font(
-                                        egui::FontId::proportional(crate::ui::NORMAL_TEXT_SIZE),
-                                    ));
-
+                                    // Preview
                                     if let Some(preview) = &self.layer_previews[layer_idx] {
                                         let t = SizedTexture::from_handle(preview);
 
@@ -180,6 +193,13 @@ impl LayerManagerSettings {
                                         ui.add_space(60.0 + ui.spacing().item_spacing.x);
                                     }
 
+                                    // Name
+                                    ui.add(
+                                        egui::TextEdit::singleline(&mut layer.name)
+                                            .desired_width(100.0),
+                                    );
+
+                                    // Strength
                                     ui.vertical(|ui| {
                                         ui.label(egui::RichText::new("strength").font(
                                             egui::FontId::proportional(crate::ui::NORMAL_TEXT_SIZE),
@@ -194,15 +214,21 @@ impl LayerManagerSettings {
 
                                     ui.add_space(ui.available_width() - 30.);
 
+                                    // Drag area
                                     let drag_icon = ui.label("...");
                                     let drag_icon_response = ui.interact(
                                         drag_icon.interact_rect,
                                         ui.make_persistent_id(format!("drag_icon_{layer_idx}")),
-                                        egui::Sense::drag(),
+                                        egui::Sense::click_and_drag(),
                                     );
                                     if drag_icon_response.drag_started() {
                                         self.dragging_index = Some(layer_idx);
                                         self.drop_target_index = None;
+                                    }
+                                    if drag_icon_response.hovered() {
+                                        ui.output_mut(|o| {
+                                            o.cursor_icon = egui::CursorIcon::ResizeVertical
+                                        });
                                     }
                                 });
                             })
