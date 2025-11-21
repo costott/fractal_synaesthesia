@@ -27,4 +27,8 @@ impl LayerManager {
     pub fn add_layer(&mut self) {
         self.layers.push(Layer::default());
     }
+
+    pub fn remove_layer(&mut self, index: usize) {
+        self.layers.remove(index);
+    }
 }

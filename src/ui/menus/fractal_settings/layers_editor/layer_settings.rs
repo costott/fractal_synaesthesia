@@ -126,6 +126,7 @@ impl LayerSettings {
                     LayerAlgorithmKind::OrbitTrap { trap } => {
                         layer_changed |= LayerSettings::orbit_trap_settings(
                             ui,
+                            ctx.rendering,
                             trap,
                             &mut self.update_locals,
                             &mut self.local_specifics_copy,
@@ -134,6 +135,7 @@ impl LayerSettings {
                     LayerAlgorithmKind::Shading3D { h2, angle } => {
                         layer_changed |= LayerSettings::shading3d_settings(
                             ui,
+                            ctx.rendering,
                             h2,
                             angle,
                             &mut self.local_specifics_copy,
@@ -142,6 +144,7 @@ impl LayerSettings {
                     LayerAlgorithmKind::TriangleInequality { apower } => {
                         layer_changed |= LayerSettings::triangle_inequality_settings(
                             ui,
+                            ctx.rendering,
                             apower,
                             &mut self.local_specifics_copy,
                         );
@@ -152,6 +155,7 @@ impl LayerSettings {
                     } => {
                         layer_changed |= LayerSettings::stripe_average_settings(
                             ui,
+                            ctx.rendering,
                             skip_iteration,
                             stripe_density,
                             ctx.fractal_params.lock().unwrap().max_iterations,
@@ -166,6 +170,7 @@ impl LayerSettings {
 
     fn orbit_trap_settings(
         ui: &mut egui::Ui,
+        ctx_rendering: bool,
         trap: &mut OrbitTrapType,
         update_locals: &mut bool,
         local_specifics_copy: &mut Option<LocalSpecificsCopy>,
@@ -210,6 +215,7 @@ impl LayerSettings {
                         ui,
                         "Center (Re)",
                         center_re,
+                        ctx_rendering,
                         || centre_real.clone(),
                         |new| point.center.update_real_from_string(new),
                     );
@@ -219,6 +225,7 @@ impl LayerSettings {
                         ui,
                         "Center (Im)",
                         center_im,
+                        ctx_rendering,
                         || centre_im.clone(),
                         |new| point.center.update_im_from_string(new),
                     );
@@ -236,6 +243,7 @@ impl LayerSettings {
                         ui,
                         "Center (Re)",
                         center_re,
+                        ctx_rendering,
                         || centre_real.clone(),
                         |new| cross.center.update_real_from_string(new),
                     );
@@ -245,6 +253,7 @@ impl LayerSettings {
                         ui,
                         "Center (Im)",
                         center_im,
+                        ctx_rendering,
                         || centre_im.clone(),
                         |new| cross.center.update_im_from_string(new),
                     );
@@ -254,6 +263,7 @@ impl LayerSettings {
                         ui,
                         "Arm length",
                         arm_length,
+                        ctx_rendering,
                         || arm.clone(),
                         |new| {
                             if let Ok(val) = new.parse::<f64>() {
@@ -275,6 +285,7 @@ impl LayerSettings {
                         ui,
                         "Center (Re)",
                         center_re,
+                        ctx_rendering,
                         || centre_real.clone(),
                         |new| circle.center.update_real_from_string(new),
                     );
@@ -284,6 +295,7 @@ impl LayerSettings {
                         ui,
                         "Center (Im)",
                         center_im,
+                        ctx_rendering,
                         || centre_im.clone(),
                         |new| circle.center.update_im_from_string(new),
                     );
@@ -293,6 +305,7 @@ impl LayerSettings {
                         ui,
                         "Radius",
                         radius,
+                        ctx_rendering,
                         || c_radius.clone(),
                         |new| {
                             if let Ok(val) = new.parse::<f64>() {
@@ -309,6 +322,7 @@ impl LayerSettings {
 
     fn shading3d_settings(
         ui: &mut egui::Ui,
+        ctx_rendering: bool,
         h2: &mut f64,
         angle: &mut f64,
         local_specifics_copy: &mut Option<LocalSpecificsCopy>,
@@ -328,6 +342,7 @@ impl LayerSettings {
                 ui,
                 "Height",
                 local_h2,
+                ctx_rendering,
                 || curr_h2.clone(),
                 |new| {
                     if let Ok(val) = new.parse::<f64>() {
@@ -354,6 +369,7 @@ impl LayerSettings {
 
     fn triangle_inequality_settings(
         ui: &mut egui::Ui,
+        ctx_rendering: bool,
         apower: &mut f64,
         local_specifics_copy: &mut Option<LocalSpecificsCopy>,
     ) -> bool {
@@ -371,6 +387,7 @@ impl LayerSettings {
                 ui,
                 "Apower",
                 local_apower,
+                ctx_rendering,
                 || curr_apower.clone(),
                 |new| {
                     if let Ok(val) = new.parse::<f64>() {
@@ -385,6 +402,7 @@ impl LayerSettings {
 
     fn stripe_average_settings(
         ui: &mut egui::Ui,
+        ctx_rendering: bool,
         skip_iteration: &mut u32,
         stripe_density: &mut f64,
         max_iterations: u32,
@@ -417,6 +435,7 @@ impl LayerSettings {
                 ui,
                 "Sripe Density",
                 local_stripe_density,
+                ctx_rendering,
                 || curr_density.clone(),
                 |new| {
                     if let Ok(val) = new.parse::<f64>() {
