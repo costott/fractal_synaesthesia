@@ -1,27 +1,21 @@
-use crate::ui::window::{Window, WindowParams};
+use crate::ui::window::WindowParams;
 
 pub struct Controls {
     pub params: WindowParams,
-    is_open: bool,
 }
 impl Controls {
     pub fn new(params: WindowParams) -> Self {
-        Self {
-            params,
-            is_open: true,
-        }
-    }
-}
-impl Window for Controls {
-    fn is_open(&self) -> bool {
-        self.is_open
+        Self { params }
     }
 
-    fn set_open(&mut self, open: bool) {
-        self.is_open = open;
-    }
+    /// Returns whether or not the fractal settings mode should be saved and closed
+    pub fn update(
+        &mut self,
+        egui_ctx: &egui::Context,
+        _ctx: &mut crate::ui::window::WindowContext,
+    ) -> bool {
+        let mut close = false;
 
-    fn update(&mut self, egui_ctx: &egui::Context, _ctx: &mut crate::ui::window::WindowContext) {
         self.params.sized_area("controls", egui_ctx, |ui| {
             ui.painter().line_segment(
                 [
@@ -37,7 +31,15 @@ impl Window for Controls {
                 ui.button("[PH] screenshot");
                 ui.button("[PH] save paramaters");
                 ui.button("[PH] load from file");
+
+                ui.add_space(50.0);
+
+                if ui.button("[PH] Save").clicked() {
+                    close = true;
+                }
             });
         });
+
+        close
     }
 }

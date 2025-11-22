@@ -12,7 +12,7 @@ use crate::{
     },
     types::BigComplex,
     ui::{
-        AppModeScreen,
+        AppModeScreen, FractalSettings,
         fractal::{fractal_canvas::CanvasDimensions, fractal_window::FractalWindow},
         window::{Window, WindowContext, WindowParams},
     },
@@ -138,12 +138,21 @@ impl FractalSettingsMode {
             }),
         }
     }
+
+    pub fn get_fractal_settings(&self) -> FractalSettings {
+        FractalSettings {
+            params: self.window_context.fractal_params.lock().unwrap().clone(),
+            layers: self.window_context.layer_manager.lock().unwrap().clone(),
+        }
+    }
 }
 impl AppModeScreen for FractalSettingsMode {
-    fn update(&mut self, egui_ctx: &egui::Context) {
+    fn update(&mut self, egui_ctx: &egui::Context) -> bool {
         self.main_fractal.update(egui_ctx, &mut self.window_context);
         self.sidebar.update(egui_ctx, &mut self.window_context);
-        self.controls.update(egui_ctx, &mut self.window_context);
+        let save_and_close = self.controls.update(egui_ctx, &mut self.window_context);
+
+        save_and_close
     }
 
     fn draw(&self) {

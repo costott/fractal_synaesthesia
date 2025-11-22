@@ -3,6 +3,7 @@ use crate::rendering::manager::layer::Layer;
 use macroquad::prelude::*;
 
 /// Controls the structure (order, number) of the layers.
+#[derive(Clone)]
 pub struct LayerManager {
     pub layers: Vec<Layer>,
 }

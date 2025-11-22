@@ -1,6 +1,14 @@
 use macroquad::prelude::*;
 
-use crate::ui::{menus::fractal_settings::FractalSettingsMode, window::*};
+use crate::{
+    rendering::{
+        algorithms::render_algorithms::FractalParams, manager::layer_manager::LayerManager,
+    },
+    ui::{
+        menus::{audio_mapper::AudioMapperMode, fractal_settings::FractalSettingsMode},
+        window::*,
+    },
+};
 
 pub mod fractal;
 mod menus;
@@ -47,8 +55,23 @@ impl App {
             });
 
             match self.mode {
-                AppMode::FractalSettings => self.fractal_settings.update(egui_ctx),
-                AppMode::AudioMapper => self.audio_mapper.update(egui_ctx),
+                AppMode::FractalSettings => {
+                    let to_swap = self.fractal_settings.update(egui_ctx);
+
+                    if to_swap {
+                        self.audio_mapper.load_from_fractal_settings(
+                            self.fractal_settings.get_fractal_settings(),
+                        );
+                        self.mode = AppMode::AudioMapper;
+                    }
+                }
+                AppMode::AudioMapper => {
+                    let to_swap = self.audio_mapper.update(egui_ctx);
+
+                    if to_swap {
+                        self.mode = AppMode::FractalSettings;
+                    }
+                }
             };
         });
     }
@@ -63,17 +86,15 @@ impl App {
 }
 
 trait AppModeScreen {
-    fn update(&mut self, _egui_ctx: &egui::Context) {}
-    fn draw(&self) {}
+    /// Update the screen, and return whether or not the mode should be swapped
+    fn update(&mut self, _egui_ctx: &egui::Context) -> bool;
+    fn draw(&self);
 }
 
-pub struct AudioMapperMode {}
-impl AudioMapperMode {
-    pub fn new() -> Self {
-        Self {}
-    }
+pub struct FractalSettings {
+    pub params: FractalParams,
+    pub layers: LayerManager,
 }
-impl AppModeScreen for AudioMapperMode {}
 
 pub trait Dropdown<T>: Clone + PartialEq {
     fn get_variants() -> Vec<T>;
@@ -124,6 +145,7 @@ fn text_param<FGet, FSet>(
     ui: &mut egui::Ui,
     label: &str,
     local_value: &mut String,
+    ctx_rendering: bool,
     get_value: FGet,
     mut set_value: FSet,
 ) -> bool
@@ -145,7 +167,7 @@ where
     }
 
     // Update UI value when not being changed by UI
-    if !response.has_focus() {
+    if !ctx_rendering && !response.has_focus() {
         *local_value = get_value();
     }
 
