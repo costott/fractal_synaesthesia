@@ -48,6 +48,7 @@ impl WindowParams {
     }
 }
 
+#[derive(Clone)]
 pub struct WindowContext {
     pub fractal_params: Arc<Mutex<FractalParams>>,
     pub fractal_dims: CanvasDimensions,
