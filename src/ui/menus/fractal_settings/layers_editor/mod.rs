@@ -1,4 +1,4 @@
-use crate::ui::window::{Window, WindowParams};
+use crate::ui::{menus::fractal_settings::FractalSettingsWindow, window::WindowParams};
 
 mod layer_settings;
 use layer_settings::LayerSettings;
@@ -37,16 +37,12 @@ impl LayersEditor {
         }
     }
 }
-impl Window for LayersEditor {
-    fn is_open(&self) -> bool {
-        self.is_open
-    }
-
-    fn set_open(&mut self, open: bool) {
-        self.is_open = open;
-    }
-
-    fn update(&mut self, egui_ctx: &egui::Context, ctx: &mut crate::ui::window::WindowContext) {
+impl FractalSettingsWindow for LayersEditor {
+    fn update(
+        &mut self,
+        egui_ctx: &egui::Context,
+        ctx: &mut crate::ui::menus::fractal_settings::FractalSettingsContext,
+    ) {
         self.params.sized_area("layers_editor", egui_ctx, |_| {
             let is_changed = self
                 .layer_settings

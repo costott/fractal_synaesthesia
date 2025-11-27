@@ -6,7 +6,10 @@ use crate::{
         algorithms::render_algorithms::FractalParams, fractal_visualiser::FractalVisualiser,
         manager::layer_manager::LayerManager,
     },
-    ui::{Window, WindowContext, WindowParams, fractal::zoom_window::ZoomWindow},
+    ui::{
+        WindowParams, fractal::zoom_window::ZoomWindow,
+        menus::fractal_settings::FractalSettingsWindow,
+    },
 };
 
 /// A UI element for a fractal
@@ -53,16 +56,12 @@ impl FractalWindow {
         self.zoom_window.draw();
     }
 }
-impl Window for FractalWindow {
-    fn is_open(&self) -> bool {
-        self.is_open
-    }
-
-    fn set_open(&mut self, open: bool) {
-        self.is_open = open;
-    }
-
-    fn update(&mut self, _egui_ctx: &egui::Context, ctx: &mut WindowContext) {
+impl FractalSettingsWindow for FractalWindow {
+    fn update(
+        &mut self,
+        _egui_ctx: &egui::Context,
+        ctx: &mut crate::ui::menus::fractal_settings::FractalSettingsContext,
+    ) {
         let changed = self.zoom_window.update(
             self.params.get_bounding_rect(),
             Arc::clone(&ctx.fractal_params),

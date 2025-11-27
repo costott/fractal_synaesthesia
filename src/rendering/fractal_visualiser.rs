@@ -12,7 +12,7 @@ use crate::{
 use macroquad::prelude::*;
 
 pub struct FractalVisualiser {
-    layer_manager: Arc<Mutex<LayerManager>>,
+    pub layer_manager: Arc<Mutex<LayerManager>>,
     layer_renderer: LayersRenderer,
     reference_orbit: Arc<ReferenceOrbit>,
     pub canvas: FractalCanvas,

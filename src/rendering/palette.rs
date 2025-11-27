@@ -19,7 +19,7 @@ pub fn interpolate_colour(c1: Color, c2: Color, fraction: f32) -> Color {
 }
 
 /// Alpha blending between the current `background` and the `foreground`.
-fn alpha_blend(bg: Color, fg: Color) -> Color {
+pub fn alpha_blend(bg: Color, fg: Color) -> Color {
     let out_alpha = fg.a + bg.a * (1.0 - fg.a);
 
     if out_alpha <= 0.0 {
@@ -160,6 +160,11 @@ impl Palette {
         }
         self.offset = new;
         true
+    }
+    /// Increment the offset by `other`.
+    pub fn add_offset(&mut self, other: f32) {
+        let new = self.offset + other;
+        self.offset = new % 1.0;
     }
 
     /// Returns the colour at the given `percentage`.

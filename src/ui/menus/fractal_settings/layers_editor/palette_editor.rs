@@ -1,6 +1,6 @@
 use crate::{
-    rendering::palette::{PaletteMappingType, color_to_rbga, rgba_to_color},
-    ui::{Dropdown as _, window::WindowParams},
+    rendering::palette::{color_to_rbga, rgba_to_color},
+    ui::window::WindowParams,
 };
 
 struct PaletteTextures {
@@ -52,7 +52,7 @@ impl PaletteEditor {
     pub fn update(
         &mut self,
         egui_ctx: &egui::Context,
-        ctx: &mut crate::ui::window::WindowContext,
+        ctx: &mut crate::ui::menus::fractal_settings::FractalSettingsContext,
     ) -> bool {
         let mut changed_layer = false;
         let mut need_to_close = false;

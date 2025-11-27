@@ -27,15 +27,15 @@ fn choose(n: u32, r: u32) -> u32 {
 }
 
 /// Linear interpolation between f64s `a` and `b` with parameter `t`.
-fn lerpf64(a: f64, b: f64, t: f64) -> f64 {
+pub fn lerpf64(a: f64, b: f64, t: f64) -> f64 {
     let output = (1. - t) * a + t * b;
     // Check for accuracy loss
     match output == (1. - t) * a || output == t * b {
         false => output,
         // Not accurate enough, so use FBigs and reconvert back to f64s
         true => lerp_fbig(
-            FBig::try_from(a).unwrap(),
-            FBig::try_from(b).unwrap(),
+            &FBig::try_from(a).unwrap(),
+            &FBig::try_from(b).unwrap(),
             &FBig::try_from(t).unwrap(),
         )
         .to_f64()
@@ -49,12 +49,12 @@ fn lerpf64_pow(a: f64, b: f64, t: f64, p: f64) -> f64 {
 }
 
 /// Linear interpolation between FBigs `a` and `b` with parameter `t`.
-fn lerp_fbig(a: FBig, b: FBig, t: &FBig) -> FBig {
+pub fn lerp_fbig(a: &FBig, b: &FBig, t: &FBig) -> FBig {
     (FBig::ONE - t) * a + t * b
 }
 
 /// Linear interpolation of FBigs `a^p` and `b^p` with parameter `t`.
-fn lerp_fbig_pow(a: FBig, b: FBig, t: &FBig, p: &FBig) -> FBig {
+fn lerp_fbig_pow(a: &FBig, b: &FBig, t: &FBig, p: &FBig) -> FBig {
     lerp_fbig(a, b, &t.powf(p))
 }
 
@@ -395,6 +395,13 @@ impl BigComplex {
             .with_base_and_precision::<10>(self.im.precision())
             .value()
             .to_string()
+    }
+
+    pub fn lerp(c1: &Self, c2: &Self, t: &FBig) -> Self {
+        Self::new(
+            lerp_fbig(&c1.real, &c2.real, t),
+            lerp_fbig(&c1.im, &c2.im, t),
+        )
     }
 }
 impl ComplexNumber for BigComplex {

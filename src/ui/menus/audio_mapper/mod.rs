@@ -1,23 +1,43 @@
+use std::sync::{Arc, Mutex};
+
 use macroquad::prelude::*;
 
 use crate::{
-    rendering::video::VideoManager,
-    ui::{AppModeScreen, FractalSettings},
+    audio::song::Song,
+    rendering::{
+        manager::layer_manager::LayerManager,
+        video::{VideoManager, song_manager::SongManager},
+    },
+    ui::{AppModeScreen, FractalSettings, fractal::fractal_canvas::CanvasDimensions},
 };
 
+mod video_preview_window;
+use video_preview_window::VideoPreviewWindow;
+
 pub struct AudioMapperMode {
+    context: AudioMapperContext,
+
+    // -------------------------------------
     // top bar: song settings
+    song_manager: Option<SongManager>,
     // middle section: video preview
     video_manger: Option<VideoManager>,
+    video_manager_window: VideoPreviewWindow,
     // bottom section: audio mapping
+    // -------------------------------------
+    /// Stored for use in restoring settings back into fractal settings mode
+    end_fractal_settings: FractalSettings,
 }
 impl AudioMapperMode {
-    pub fn new() -> Self {
-        Self { video_manger: None }
-    }
-
-    pub fn load_from_fractal_settings(&mut self, settings: FractalSettings) {
-        self.video_manger = Some(VideoManager::from_fractal_settings(settings));
+    pub fn new(settings: FractalSettings) -> Self {
+        let context = AudioMapperContext::load_from_fractal_settings(&settings);
+        Self {
+            song_manager: None,
+            video_manger: None,
+            video_manager_window: VideoPreviewWindow {},
+            context,
+            end_fractal_settings: settings,
+        }
     }
 }
 impl AppModeScreen for AudioMapperMode {
@@ -26,6 +46,34 @@ impl AppModeScreen for AudioMapperMode {
     }
 
     fn draw(&self) {
-        clear_background(WHITE);
+        clear_background(Color {
+            r: 0.09,
+            g: 0.09,
+            b: 0.09,
+            a: 1.,
+        });
     }
+}
+
+#[derive(Clone)]
+pub struct AudioMapperContext {
+    pub layer_manager: Arc<Mutex<LayerManager>>,
+    pub video_dimensions: CanvasDimensions,
+    pub song: Option<Song>,
+}
+impl AudioMapperContext {
+    pub fn load_from_fractal_settings(settings: &FractalSettings) -> Self {
+        Self {
+            layer_manager: Arc::new(Mutex::new(settings.layers.clone())),
+            video_dimensions: CanvasDimensions {
+                width: 800,
+                height: 600,
+            },
+            song: None,
+        }
+    }
+}
+
+pub trait AudioMapperWindow {
+    fn update(&mut self, _egui_ctx: &egui::Context, _ctx: &mut AudioMapperContext);
 }

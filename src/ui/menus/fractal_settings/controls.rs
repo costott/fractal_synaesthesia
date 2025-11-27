@@ -12,7 +12,7 @@ impl Controls {
     pub fn update(
         &mut self,
         egui_ctx: &egui::Context,
-        _ctx: &mut crate::ui::window::WindowContext,
+        _ctx: &mut crate::ui::menus::fractal_settings::FractalSettingsContext,
     ) -> bool {
         let mut close = false;
 

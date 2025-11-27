@@ -1,6 +1,8 @@
 use crate::ui::{
-    menus::fractal_settings::{layers_editor::LayersEditor, param_editor::ParamEditor},
-    window::{Window, WindowParams},
+    menus::fractal_settings::{
+        FractalSettingsWindow, layers_editor::LayersEditor, param_editor::ParamEditor,
+    },
+    window::WindowParams,
 };
 use macroquad::prelude::*;
 
@@ -51,16 +53,12 @@ impl Sidebar {
         }
     }
 }
-impl Window for Sidebar {
-    fn is_open(&self) -> bool {
-        self.is_open
-    }
-
-    fn set_open(&mut self, open: bool) {
-        self.is_open = open;
-    }
-
-    fn update(&mut self, egui_ctx: &egui::Context, ctx: &mut crate::ui::window::WindowContext) {
+impl FractalSettingsWindow for Sidebar {
+    fn update(
+        &mut self,
+        egui_ctx: &egui::Context,
+        ctx: &mut crate::ui::menus::fractal_settings::FractalSettingsContext,
+    ) {
         self.params.sized_area("fractalsidebar", egui_ctx, |ui| {
             ui.painter().line_segment(
                 [
