@@ -1,3 +1,4 @@
+pub mod audio;
 pub mod rendering;
 pub mod shaders;
 pub mod types;

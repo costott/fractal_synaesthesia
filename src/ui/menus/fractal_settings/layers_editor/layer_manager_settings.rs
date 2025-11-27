@@ -40,7 +40,7 @@ impl LayerManagerSettings {
     pub fn update(
         &mut self,
         egui_ctx: &egui::Context,
-        ctx: &mut crate::ui::window::WindowContext,
+        ctx: &mut crate::ui::menus::fractal_settings::FractalSettingsContext,
         selected_layer: &mut usize,
     ) -> bool {
         let layer_manager = &mut ctx.layer_manager.lock().unwrap();
@@ -154,6 +154,10 @@ impl LayerManagerSettings {
                     ui.add_space(ui.available_width() - 25.0);
 
                     if ui.button("-").clicked() {
+                        if layer_manager.layers.len() == 1 {
+                            return;
+                        }
+
                         layer_manager.remove_layer(*selected_layer);
                         self.layer_previews.remove(*selected_layer);
                         *selected_layer = 0;

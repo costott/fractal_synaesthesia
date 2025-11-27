@@ -14,7 +14,7 @@ use crate::{
     ui::{
         AppModeScreen, FractalSettings,
         fractal::{fractal_canvas::CanvasDimensions, fractal_window::FractalWindow},
-        window::{Window, WindowContext, WindowParams},
+        window::WindowParams,
     },
 };
 use macroquad::prelude::*;
@@ -29,7 +29,7 @@ mod layers_editor;
 pub const START_PIXEL_STEP: f64 = 0.005;
 
 pub struct FractalSettingsMode {
-    window_context: WindowContext,
+    context: FractalSettingsContext,
 
     main_fractal: FractalWindow,
     sidebar: Sidebar,
@@ -112,7 +112,7 @@ impl FractalSettingsMode {
                 &params,
                 layer_manager.clone(),
             ),
-            window_context: WindowContext {
+            context: FractalSettingsContext {
                 fractal_params: Arc::new(Mutex::new(params)),
                 fractal_dims: CanvasDimensions {
                     width: 800,
@@ -141,16 +141,16 @@ impl FractalSettingsMode {
 
     pub fn get_fractal_settings(&self) -> FractalSettings {
         FractalSettings {
-            params: self.window_context.fractal_params.lock().unwrap().clone(),
-            layers: self.window_context.layer_manager.lock().unwrap().clone(),
+            params: self.context.fractal_params.lock().unwrap().clone(),
+            layers: self.context.layer_manager.lock().unwrap().clone(),
         }
     }
 }
 impl AppModeScreen for FractalSettingsMode {
     fn update(&mut self, egui_ctx: &egui::Context) -> bool {
-        self.main_fractal.update(egui_ctx, &mut self.window_context);
-        self.sidebar.update(egui_ctx, &mut self.window_context);
-        let save_and_close = self.controls.update(egui_ctx, &mut self.window_context);
+        self.main_fractal.update(egui_ctx, &mut self.context);
+        self.sidebar.update(egui_ctx, &mut self.context);
+        let save_and_close = self.controls.update(egui_ctx, &mut self.context);
 
         save_and_close
     }
@@ -169,4 +169,19 @@ impl AppModeScreen for FractalSettingsMode {
 
         self.main_fractal.draw();
     }
+}
+
+#[derive(Clone)]
+pub struct FractalSettingsContext {
+    pub fractal_params: Arc<Mutex<FractalParams>>,
+    pub fractal_dims: CanvasDimensions,
+    pub rendering: bool,
+    pub request_render: bool,
+    pub update_previews: bool,
+    pub layer_manager: Arc<Mutex<LayerManager>>,
+    pub update_layers: bool,
+}
+
+pub trait FractalSettingsWindow {
+    fn update(&mut self, _egui_ctx: &egui::Context, _ctx: &mut FractalSettingsContext);
 }

@@ -1,18 +1,4 @@
 use macroquad::prelude::*;
-use std::sync::{Arc, Mutex};
-
-use crate::{
-    rendering::{
-        algorithms::render_algorithms::FractalParams, manager::layer_manager::LayerManager,
-    },
-    ui::fractal::fractal_canvas::CanvasDimensions,
-};
-
-pub trait Window {
-    fn is_open(&self) -> bool;
-    fn set_open(&mut self, open: bool);
-    fn update(&mut self, _egui_ctx: &egui::Context, _ctx: &mut WindowContext);
-}
 
 #[derive(Clone, Copy)]
 pub struct WindowParams {
@@ -46,15 +32,4 @@ impl WindowParams {
                 add_contents(ui);
             });
     }
-}
-
-#[derive(Clone)]
-pub struct WindowContext {
-    pub fractal_params: Arc<Mutex<FractalParams>>,
-    pub fractal_dims: CanvasDimensions,
-    pub rendering: bool,
-    pub request_render: bool,
-    pub update_previews: bool,
-    pub layer_manager: Arc<Mutex<LayerManager>>,
-    pub update_layers: bool,
 }

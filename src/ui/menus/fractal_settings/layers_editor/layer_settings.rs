@@ -7,9 +7,8 @@ use crate::{
     },
     types::ComplexNumber,
     ui::{
-        Dropdown,
-        menus::fractal_settings::layers_editor::palette_editor::PaletteEditor,
-        window::{Window, WindowParams},
+        Dropdown, menus::fractal_settings::layers_editor::palette_editor::PaletteEditor,
+        window::WindowParams,
     },
 };
 
@@ -43,7 +42,7 @@ impl LayerSettings {
     pub fn update(
         &mut self,
         egui_ctx: &egui::Context,
-        ctx: &mut crate::ui::window::WindowContext,
+        ctx: &mut crate::ui::menus::fractal_settings::FractalSettingsContext,
         selected_layer: usize,
     ) -> bool {
         if self.palette_editor.is_open() {

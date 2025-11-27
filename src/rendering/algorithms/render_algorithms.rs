@@ -7,6 +7,7 @@ use macroquad::prelude::*;
 use smallvec::SmallVec;
 
 /// Fractal rendering algorithms
+#[derive(Clone, Copy)]
 pub enum Fractal {
     Mandelbrot { power: u32 },
 }

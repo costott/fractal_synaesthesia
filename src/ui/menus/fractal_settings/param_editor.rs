@@ -1,6 +1,6 @@
 use crate::{
     types::ComplexNumber,
-    ui::{Window, WindowContext, WindowParams},
+    ui::{WindowParams, menus::fractal_settings::FractalSettingsWindow},
 };
 
 pub struct ParamEditor {
@@ -18,16 +18,12 @@ impl ParamEditor {
         }
     }
 }
-impl Window for ParamEditor {
-    fn is_open(&self) -> bool {
-        self.is_open
-    }
-
-    fn set_open(&mut self, open: bool) {
-        self.is_open = open
-    }
-
-    fn update(&mut self, egui_ctx: &egui::Context, ctx: &mut WindowContext) {
+impl FractalSettingsWindow for ParamEditor {
+    fn update(
+        &mut self,
+        egui_ctx: &egui::Context,
+        ctx: &mut crate::ui::menus::fractal_settings::FractalSettingsContext,
+    ) {
         let mut needs_render = false;
 
         self.params.sized_area("params", egui_ctx, |ui| {
