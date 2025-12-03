@@ -2,6 +2,8 @@ use aubio_rs::{OnsetMode, Pitch, PitchMode, Tempo};
 use hound::SampleFormat;
 use thiserror::Error;
 
+use crate::ui::Dropdown;
+
 /// Represents errors that can occur during audio analysis operations.
 #[derive(Error, Debug)]
 pub enum AudioError {
@@ -50,6 +52,41 @@ impl SongType {
             buf_size,
             tempo_method,
         }
+    }
+}
+
+#[derive(Clone, Copy, PartialEq)]
+pub enum SongTypes {
+    Pop,
+    Techno,
+    Custom(usize, usize, OnsetMode),
+}
+impl SongTypes {
+    pub fn get_song_type(&self) -> SongType {
+        match self {
+            SongTypes::Pop => SongType::pop(),
+            SongTypes::Techno => SongType::techno(),
+            SongTypes::Custom(hop_size, buf_size, tempo_method) => {
+                SongType::custom(*hop_size, *buf_size, *tempo_method)
+            }
+        }
+    }
+}
+impl Dropdown<SongTypes> for SongTypes {
+    fn get_text(&self) -> &str {
+        match self {
+            SongTypes::Pop => "Pop",
+            SongTypes::Techno => "Techno",
+            SongTypes::Custom(_, _, _) => "Custom (advanced)",
+        }
+    }
+
+    fn get_variants() -> Vec<SongTypes> {
+        vec![
+            SongTypes::Pop,
+            SongTypes::Techno,
+            SongTypes::Custom(256, 512, OnsetMode::Complex),
+        ]
     }
 }
 

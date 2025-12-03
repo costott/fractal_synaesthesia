@@ -5,7 +5,7 @@ use crate::{
         algorithms::render_algorithms::{Fractal, FractalParams},
         fractal_visualiser::FractalVisualiser,
         manager::layer_manager::LayerManager,
-        video::song_manager::SongManager,
+        video::{audio_mapper::AudioMapper, song_manager::SongManager},
     },
     types::BigComplex,
     ui::{FractalSettings, menus::audio_mapper::AudioMapperContext},
@@ -16,7 +16,6 @@ pub mod song_manager;
 
 pub struct VideoManager {
     frame_manager: VideoFrameManager,
-    song_manager: SongManager,
     visualiser: FractalVisualiser,
     zoom_timeline: ZoomTimeline,
 
@@ -25,10 +24,18 @@ pub struct VideoManager {
     hop_size: f32,
 }
 impl VideoManager {
+    /// Creates a new video manager for rendering videos based on the provided song manager
+    /// and fractal parameters
+    ///
+    /// # Params
+    /// - `context`: Audio mapper context
+    /// - `params`: Fractal parameters of end frame
+    /// - `framerate`: Framerate of the video to be rendered
+    /// - `hop_size`: Hop size used for the granularity of zoom timeline sampling
     pub fn new(
         context: &AudioMapperContext,
         params: &FractalParams,
-        song_manager: SongManager,
+        audio_mapper: &AudioMapper,
         framerate: f32,
         hop_size: f32,
     ) -> Self {
@@ -37,33 +44,41 @@ impl VideoManager {
             context.video_dimensions,
             context.layer_manager.clone(),
         );
-        let total_frames = (song_manager.song.duration() * framerate) as usize;
+        let total_frames =
+            (context.song_manager.as_ref().unwrap().song.duration() * framerate) as usize;
 
         Self {
             zoom_timeline: ZoomTimeline::build_complete(
-                &song_manager,
+                &context.song_manager.as_ref().unwrap(),
                 visualiser.layer_manager.clone(),
+                audio_mapper,
                 crate::ui::menus::fractal_settings::START_PIXEL_STEP,
                 params.pixel_step,
                 hop_size,
             ),
             visualiser,
             frame_manager: VideoFrameManager::new(params.clone()),
-            song_manager,
             total_frames,
             framerate,
             hop_size,
         }
     }
 
-    pub fn get_frame(&mut self, video_percent: f32) -> macroquad::texture::Image {
+    pub fn get_frame(
+        &mut self,
+        audio_mapper: &AudioMapper,
+        song_manager: &SongManager,
+        video_percent: f32,
+    ) -> macroquad::texture::Image {
         let timestamp = self.total_frames as f32 * video_percent;
 
         let frame = self.frame_manager.get_frame(0.1, video_percent);
 
-        let render_layers = self
-            .song_manager
-            .get_layers_at_timestamp(self.visualiser.layer_manager.clone(), timestamp);
+        let render_layers = song_manager.get_layers_at_timestamp(
+            self.visualiser.layer_manager.clone(),
+            audio_mapper,
+            timestamp,
+        );
 
         let frame_params = Arc::new(Mutex::new(FractalParams::new(
             Fractal::Mandelbrot { power: 2 },
@@ -94,13 +109,18 @@ impl ZoomTimeline {
     pub fn build_complete(
         song_manager: &SongManager,
         layer_manager: Arc<Mutex<LayerManager>>,
+        audio_mapper: &AudioMapper,
         start_pixel_step: f64,
         final_pixel_step: f64,
         hop_size: f32,
     ) -> Self {
         Self::build_unnormalised(
             |layer_manager, timestamp| {
-                song_manager.get_zoom_multiplier_at_timestamp(layer_manager.clone(), timestamp)
+                song_manager.get_zoom_multiplier_at_timestamp(
+                    layer_manager.clone(),
+                    audio_mapper,
+                    timestamp,
+                )
             },
             layer_manager,
             final_pixel_step,

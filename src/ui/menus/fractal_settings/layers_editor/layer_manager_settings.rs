@@ -153,7 +153,7 @@ impl LayerManagerSettings {
 
                     ui.add_space(ui.available_width() - 25.0);
 
-                    if ui.button("-").clicked() {
+                    if ui.button("🗑").clicked() {
                         if layer_manager.layers.len() == 1 {
                             return;
                         }

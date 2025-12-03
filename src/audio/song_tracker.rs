@@ -22,6 +22,14 @@ impl SongTracker {
         self.start_time = Some(Instant::now());
     }
 
+    pub fn stop(&mut self) {
+        self.start_time = None;
+    }
+
+    pub fn is_playing(&self) -> bool {
+        self.start_time.is_some()
+    }
+
     pub fn playback_time(&self) -> Option<f32> {
         self.start_time.map(|start| start.elapsed().as_secs_f32())
     }
