@@ -4,16 +4,19 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-dashu-float = "0.4.3"
-macroquad = { version = "0.4.14", features = ["audio"] }
+dashu-float = "0.4.3" # For arbitrary-precision floating point arithmetic
+macroquad = { version = "0.4.14", default-features = false }
 num_cpus = "1.17.0"
 smallvec = "1.15.1"
-threadpool = "1.8.1"
+threadpool = "1.8.1" 
 egui = "0.31.1"
-egui-macroquad = "0.17.3"
+egui-macroquad = { version = "0.17.3", default-features = false }
 aubio-rs = {version="0.2", features=["builtin"]}
 hound = "3.5"  # For reading WAV files
 thiserror = "2.0.16"
+rfd = "0.16.0" # For file dialogs
+futures = "0.3.31"
+kira = "0.11.0" # For audio playback
 
 [profile.dev]
 opt-level = 3

@@ -1,4 +1,5 @@
 use egui::Rgba;
+
 /// A colour palette used for rendering
 use macroquad::prelude::*;
 use std::collections::HashSet;

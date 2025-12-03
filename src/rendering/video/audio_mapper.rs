@@ -12,6 +12,15 @@ pub struct AudioMapper {
     pitch: ContinuousSampleMapper,
 }
 impl AudioMapper {
+    pub fn empty() -> Self {
+        Self {
+            on_beat: OnBeatMapper::empty(),
+            tempo: ContinuousSampleMapper::empty(),
+            volume: ContinuousSampleMapper::empty(),
+            pitch: ContinuousSampleMapper::empty(),
+        }
+    }
+
     pub fn run_on_layer(
         &self,
         layer: &Layer,
@@ -113,6 +122,15 @@ struct OnBeatMapper {
     decay_duration: f32,
 }
 impl OnBeatMapper {
+    pub fn empty() -> Self {
+        Self {
+            layer_actions: HashMap::new(),
+            zoom_actions: HashMap::new(),
+            attack_duration: 0.1,
+            decay_duration: 0.2,
+        }
+    }
+
     /// Takes the `timestamp` and `nearest_beat_timestamp` and returns the
     /// intensity of the beat effect relative to where we are to the beat
     fn beat_intensity(&self, timestamp: f32, nearest_beat_timestamp: f32) -> f32 {
@@ -223,6 +241,14 @@ pub struct ContinuousSampleMapper {
     zoom_actions: HashMap<usize, ContinousSampleZoomAction>,
 }
 impl ContinuousSampleMapper {
+    pub fn empty() -> Self {
+        Self {
+            feature_picker: Box::new(|_| 0.0),
+            layer_actions: HashMap::new(),
+            zoom_actions: HashMap::new(),
+        }
+    }
+
     fn get_intensity(
         &self,
         timestamp: f32,
@@ -243,7 +269,11 @@ impl ContinuousSampleMapper {
             })
             .unwrap();
 
-        (max_value - nearest_value) / (nearest_value - min_value)
+        if max_value - min_value == 0.0 {
+            0.0
+        } else {
+            (nearest_value - min_value) / (max_value - min_value)
+        }
     }
 }
 impl Mapper for ContinuousSampleMapper {
