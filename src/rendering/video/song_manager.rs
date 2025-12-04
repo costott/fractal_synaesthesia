@@ -9,7 +9,7 @@ use crate::{
 #[derive(Clone)]
 pub struct SongManager {
     pub song: Song,
-    song_featuers: SongFeatures,
+    pub song_featuers: SongFeatures,
 }
 impl SongManager {
     pub fn new(
