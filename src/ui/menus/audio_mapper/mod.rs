@@ -18,6 +18,7 @@ use video_preview_window::VideoPreviewWindow;
 mod song_settings;
 use song_settings::SongSettings;
 mod audio_player;
+mod waveform;
 
 pub struct AudioMapperMode {
     context: AudioMapperContext,

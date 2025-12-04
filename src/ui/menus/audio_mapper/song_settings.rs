@@ -4,6 +4,7 @@ use egui::Widget;
 
 use crate::{
     audio::{analyzer::SongTypes, song::Song},
+    rendering::video::song_manager::SongManager,
     ui::{menus::audio_mapper::audio_player::AudioPlayer, window::WindowParams},
 };
 
@@ -17,7 +18,6 @@ pub struct SongSettings {
     song_preview_playback: Option<AudioPlayer>,
 
     song_type: SongTypes,
-    // tempo_method: ?,
     // silence_threshold: f32,
     // tolerance: f32,
 }
@@ -33,7 +33,7 @@ impl SongSettings {
         }
     }
 
-    pub fn update(&mut self, egui_ctx: &egui::Context, _ctx: &mut super::AudioMapperContext) {
+    pub fn update(&mut self, egui_ctx: &egui::Context, ctx: &mut super::AudioMapperContext) {
         self.params.sized_area("song_settings", egui_ctx, |ui| {
             ui.painter().line_segment(
                 [
@@ -79,6 +79,27 @@ impl SongSettings {
                                 ))
                                 .unwrap(),
                             );
+                        }
+                    }
+
+                    if let Some(song_preview) = &self.song_preview {
+                        if ui.button("analyze").clicked() {
+                            let song_type = self.song_type.get_song_type();
+                            ctx.song_manager = Some(
+                                SongManager::new(
+                                    song_preview.clone(),
+                                    song_type.buf_size,
+                                    song_type.tempo_method,
+                                    // TODO: these are just temporaries
+                                    0.0,
+                                    10.0,
+                                )
+                                .unwrap(),
+                            );
+                            self.song_preview_playback
+                                .as_mut()
+                                .unwrap()
+                                .set_waveform(&ctx.song_manager.as_ref().unwrap().song_featuers);
                         }
                     }
                 });
