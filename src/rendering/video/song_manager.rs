@@ -9,7 +9,7 @@ use crate::{
 #[derive(Clone)]
 pub struct SongManager {
     pub song: Song,
-    pub song_featuers: SongFeatures,
+    pub song_features: SongFeatures,
 }
 impl SongManager {
     pub fn new(
@@ -20,7 +20,7 @@ impl SongManager {
         tolerance: f32,
     ) -> Result<Self, Box<dyn std::error::Error>> {
         Ok(Self {
-            song_featuers: song.analyzer.extract_features(
+            song_features: song.analyzer.extract_features(
                 buf_size,
                 tempo_method,
                 silence_threshold,
@@ -40,7 +40,7 @@ impl SongManager {
         let mut frame_layers = Vec::with_capacity(original_layer_manager.layers.capacity());
 
         for (i, layer) in original_layer_manager.layers.iter().enumerate() {
-            frame_layers.push(audio_mapper.run_on_layer(layer, i, &self.song_featuers, timestamp));
+            frame_layers.push(audio_mapper.run_on_layer(layer, i, &self.song_features, timestamp));
         }
 
         LayerManager::new(frame_layers, false)
@@ -59,7 +59,7 @@ impl SongManager {
 
         for (i, _) in layer_manager.layers.iter().enumerate() {
             multiplier +=
-                audio_mapper.get_zoom_increase_at_timestamp(i, &self.song_featuers, timestamp);
+                audio_mapper.get_zoom_increase_at_timestamp(i, &self.song_features, timestamp);
         }
 
         multiplier

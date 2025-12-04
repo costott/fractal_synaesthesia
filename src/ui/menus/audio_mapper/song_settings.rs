@@ -1,6 +1,4 @@
-use std::path::PathBuf;
-
-use egui::Widget;
+use std::{path::PathBuf, sync::mpsc};
 
 use crate::{
     audio::{analyzer::SongTypes, song::Song},
@@ -20,20 +18,36 @@ pub struct SongSettings {
     song_type: SongTypes,
     // silence_threshold: f32,
     // tolerance: f32,
+    song_manager_sender: mpsc::Sender<SongManager>,
+    song_manager_reciever: mpsc::Receiver<SongManager>,
 }
 impl SongSettings {
     pub fn new(params: WindowParams) -> Self {
+        let (tx, rx) = mpsc::channel();
+
         Self {
             params,
             old_picked_file: None,
             picked_file: None,
             song_preview: None,
             song_preview_playback: None,
+            // TODO: change song type
             song_type: SongTypes::Pop,
+            song_manager_sender: tx,
+            song_manager_reciever: rx,
         }
     }
 
     pub fn update(&mut self, egui_ctx: &egui::Context, ctx: &mut super::AudioMapperContext) {
+        // recieve sent song manager
+        if let Ok(song_manager) = self.song_manager_reciever.try_recv() {
+            self.song_preview_playback
+                .as_mut()
+                .unwrap()
+                .set_waveform(&song_manager.song_features);
+            ctx.song_manager = Some(song_manager);
+        }
+
         self.params.sized_area("song_settings", egui_ctx, |ui| {
             ui.painter().line_segment(
                 [
@@ -84,22 +98,23 @@ impl SongSettings {
 
                     if let Some(song_preview) = &self.song_preview {
                         if ui.button("analyze").clicked() {
+                            // spawn sender to analyze song
                             let song_type = self.song_type.get_song_type();
-                            ctx.song_manager = Some(
-                                SongManager::new(
-                                    song_preview.clone(),
-                                    song_type.buf_size,
-                                    song_type.tempo_method,
-                                    // TODO: these are just temporaries
-                                    0.0,
-                                    10.0,
+                            let song_preview = song_preview.clone();
+                            let tx = self.song_manager_sender.clone();
+                            std::thread::spawn(move || {
+                                tx.send(
+                                    SongManager::new(
+                                        song_preview,
+                                        song_type.buf_size,
+                                        song_type.tempo_method,
+                                        // TODO: these are just temporaries
+                                        -70.0,
+                                        0.3,
+                                    )
+                                    .unwrap(),
                                 )
-                                .unwrap(),
-                            );
-                            self.song_preview_playback
-                                .as_mut()
-                                .unwrap()
-                                .set_waveform(&ctx.song_manager.as_ref().unwrap().song_featuers);
+                            });
                         }
                     }
                 });
