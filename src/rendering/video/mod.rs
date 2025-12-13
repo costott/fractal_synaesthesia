@@ -43,6 +43,8 @@ impl VideoManager {
             params,
             context.video_dimensions,
             context.layer_manager.clone(),
+            4,
+            true,
         );
         let total_frames =
             (context.song_manager.as_ref().unwrap().song.duration() * framerate) as usize;

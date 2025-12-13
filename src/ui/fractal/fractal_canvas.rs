@@ -47,6 +47,7 @@ pub struct FractalCanvas {
     texture: Texture2D,
     renderer: Renderer,
     progress: Arc<AtomicUsize>,
+    pub last_rendered_quality: usize,
 }
 impl FractalCanvas {
     pub fn new(dimensions: CanvasDimensions) -> Self {
@@ -65,6 +66,7 @@ impl FractalCanvas {
             texture,
             renderer,
             progress: Arc::new(AtomicUsize::new(0)),
+            last_rendered_quality: 1,
         }
     }
 
@@ -82,15 +84,18 @@ impl FractalCanvas {
         layer_renderer: &LayersRenderer,
         fractal_params: Arc<Mutex<FractalParams>>,
         reference_orbit: Arc<ReferenceOrbit>,
+        quality: usize,
     ) {
         self.renderer.cancel_current_render();
         self.progress = Arc::new(AtomicUsize::new(0));
+        self.last_rendered_quality = quality;
 
         let rx = self.renderer.spawn_render_tasks(
             self.dims,
             layer_renderer,
             fractal_params,
             reference_orbit,
+            quality,
         );
 
         let image_clone = Arc::clone(&self.image);
@@ -111,7 +116,7 @@ impl FractalCanvas {
 
     pub fn finished_render(&self) -> bool {
         let progress = self.progress.load(Ordering::Relaxed);
-        progress == self.dims.total_pixels()
+        progress >= self.dims.total_pixels()
     }
 
     pub fn draw(&self, x: f32, y: f32) {

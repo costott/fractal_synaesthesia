@@ -41,7 +41,7 @@ impl Waveform {
     ) {
         let (rect, _) = ui.allocate_exact_size(egui::vec2(width, height), egui::Sense::hover());
 
-        let real_x = start_x; // <-- YOU choose the X
+        let real_x = start_x;
         let real_rect = egui::Rect::from_min_size(egui::pos2(real_x, rect.min.y), rect.size());
 
         let num_bars = self.samples.len();
