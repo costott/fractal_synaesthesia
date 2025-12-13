@@ -37,6 +37,7 @@ pub struct RenderTask {
     pub reference_orbit: Arc<ReferenceOrbit>,
     pub fractal_params: Arc<Mutex<FractalParams>>,
     pub cancel_render: Arc<AtomicBool>,
+    pub quality: usize,
 }
 impl RenderTask {
     /// Run the render task on the given `region`, calling `emit_pixel(x, y, output_colour)` on the results.`
@@ -56,8 +57,8 @@ impl RenderTask {
         let rotation = params.rotation;
         drop(params);
 
-        for y in region.start_y..=region.end_y {
-            for x in region.start_x..=region.end_x {
+        for y in (region.start_y..=region.end_y).step_by(self.quality) {
+            for x in (region.start_x..=region.end_x).step_by(self.quality) {
                 let dc = Complex::new(
                     -(image_width / 2.0 - x as f64) * pixel_step,
                     (image_height / 2.0 - y as f64) * pixel_step,
@@ -77,7 +78,15 @@ impl RenderTask {
                     }
                 };
 
-                emit_pixel(x as u32, y as u32, colour);
+                for x_step in 0..self.quality {
+                    for y_step in 0..self.quality {
+                        emit_pixel(
+                            (x + x_step).min(region.end_x) as u32,
+                            (y + y_step).min(region.end_y) as u32,
+                            colour,
+                        );
+                    }
+                }
 
                 if self.cancel_render.load(Ordering::Relaxed) {
                     return;

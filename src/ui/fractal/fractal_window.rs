@@ -34,6 +34,8 @@ impl FractalWindow {
                 fractal_params,
                 (window_params.width, window_params.height).into(),
                 layer_manager,
+                4,
+                true,
             ),
             params: window_params,
             zoom_window: ZoomWindow::new(),
@@ -62,6 +64,8 @@ impl FractalSettingsWindow for FractalWindow {
         _egui_ctx: &egui::Context,
         ctx: &mut crate::ui::menus::fractal_settings::FractalSettingsContext,
     ) {
+        self.fractal_visualiser.improve_quality(&ctx.fractal_params);
+
         let changed = self.zoom_window.update(
             self.params.get_bounding_rect(),
             Arc::clone(&ctx.fractal_params),

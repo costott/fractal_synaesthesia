@@ -23,7 +23,7 @@ pub struct Renderer {
 impl Renderer {
     pub fn new() -> Self {
         Self {
-            thread_pool: ThreadPool::new(num_cpus::get_physical() - 1),
+            thread_pool: ThreadPool::new(num_cpus::get() - 1),
             cancel_render: Arc::new(AtomicBool::new(false)),
         }
     }
@@ -34,6 +34,7 @@ impl Renderer {
         layer_renderer: &LayersRenderer,
         fractal_params: Arc<Mutex<FractalParams>>,
         reference_orbit: Arc<ReferenceOrbit>,
+        quality: usize,
     ) -> mpsc::Receiver<(u32, u32, Color)> {
         let (tx, rx) = mpsc::channel();
         let threads = self.thread_pool.max_count();
@@ -49,6 +50,7 @@ impl Renderer {
                 reference_orbit: Arc::clone(&reference_orbit),
                 fractal_params: Arc::clone(&fractal_params),
                 cancel_render: Arc::clone(&self.cancel_render),
+                quality,
             });
 
             let tx = tx.clone();

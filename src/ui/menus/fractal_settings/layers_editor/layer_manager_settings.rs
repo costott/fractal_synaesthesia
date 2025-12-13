@@ -90,6 +90,8 @@ impl LayerManagerSettings {
                 &fractal_params,
                 canvas_dims,
                 Arc::new(Mutex::new(LayerManager::new(layers_vector, false))),
+                1,
+                false,
             );
 
             tmp_visualiser.update_render(&Arc::new(Mutex::new(fractal_params)));
