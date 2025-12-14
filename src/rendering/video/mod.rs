@@ -16,12 +16,14 @@ pub mod song_manager;
 
 pub struct VideoManager {
     frame_manager: VideoFrameManager,
-    visualiser: FractalVisualiser,
     zoom_timeline: ZoomTimeline,
 
     total_frames: usize,
     framerate: f32,
     hop_size: f32,
+
+    /// Stored to restore after rendering
+    original_layers: Option<Arc<Mutex<LayerManager>>>,
 }
 impl VideoManager {
     /// Creates a new video manager for rendering videos based on the provided song manager
@@ -35,49 +37,67 @@ impl VideoManager {
     pub fn new(
         context: &AudioMapperContext,
         params: &FractalParams,
-        audio_mapper: &AudioMapper,
         framerate: f32,
         hop_size: f32,
     ) -> Self {
-        let visualiser = FractalVisualiser::new(
-            params,
-            context.video_dimensions,
-            context.layer_manager.clone(),
-            4,
-            true,
-        );
-        let total_frames =
-            (context.song_manager.as_ref().unwrap().song.duration() * framerate) as usize;
+        let duration = context
+            .song_manager
+            .as_ref()
+            .map(|sm| sm.song.duration())
+            .unwrap_or(60.0);
+        let total_frames = (duration * framerate) as usize;
 
         Self {
-            zoom_timeline: ZoomTimeline::build_complete(
-                &context.song_manager.as_ref().unwrap(),
-                visualiser.layer_manager.clone(),
-                audio_mapper,
+            zoom_timeline: ZoomTimeline::linear(
                 crate::ui::menus::fractal_settings::START_PIXEL_STEP,
                 params.pixel_step,
+                duration,
                 hop_size,
             ),
-            visualiser,
             frame_manager: VideoFrameManager::new(params.clone()),
             total_frames,
             framerate,
             hop_size,
+            original_layers: None,
         }
     }
 
-    pub fn get_frame(
+    pub fn updated_context(&mut self, context: &AudioMapperContext) {
+        self.total_frames =
+            (context.song_manager.as_ref().unwrap().song.duration() * self.framerate) as usize;
+    }
+
+    /// Rebuild the zoom timeline based on the updated audio mapper and context
+    pub fn updated_audio_mapper(
         &mut self,
+        context: &AudioMapperContext,
+        audio_mapper: &AudioMapper,
+    ) {
+        self.zoom_timeline = ZoomTimeline::build_complete(
+            context.song_manager.as_ref().unwrap(),
+            context.layer_manager.clone(),
+            audio_mapper,
+            crate::ui::menus::fractal_settings::START_PIXEL_STEP,
+            self.zoom_timeline.final_pixel_step,
+            self.hop_size,
+        );
+    }
+
+    pub fn start_render_frame(
+        &mut self,
+        visualiser: &mut FractalVisualiser,
         audio_mapper: &AudioMapper,
         song_manager: &SongManager,
         video_percent: f32,
-    ) -> macroquad::texture::Image {
-        let timestamp = self.total_frames as f32 * video_percent;
+    ) {
+        let timestamp = (self.total_frames as f32 * video_percent) / self.framerate;
 
-        let frame = self.frame_manager.get_frame(0.1, video_percent);
+        let current_magnification = crate::ui::menus::fractal_settings::START_PIXEL_STEP
+            / self.zoom_timeline.sample_at(timestamp);
+        let frame = self.frame_manager.get_frame(10.0, current_magnification);
 
         let render_layers = song_manager.get_layers_at_timestamp(
-            self.visualiser.layer_manager.clone(),
+            visualiser.layer_manager.clone(),
             audio_mapper,
             timestamp,
         );
@@ -90,15 +110,23 @@ impl VideoManager {
             0.0,
         )));
 
-        let original_layers = self.visualiser.layer_manager.clone();
-        self.visualiser.layer_manager = Arc::new(Mutex::new(render_layers));
+        self.original_layers = Some(visualiser.layer_manager.clone());
+        visualiser.layer_manager = Arc::new(Mutex::new(render_layers));
 
-        self.visualiser.update_render(&frame_params);
-        while !self.visualiser.finished_render() {}
+        visualiser.update_render(frame_params);
+    }
 
-        self.visualiser.layer_manager = original_layers;
+    pub fn try_end_render_frame(
+        &mut self,
+        visualiser: &mut FractalVisualiser,
+    ) -> Option<macroquad::texture::Image> {
+        if !visualiser.finished_render() {
+            return None;
+        }
 
-        self.visualiser.rendered_image().lock().unwrap().clone()
+        visualiser.layer_manager = self.original_layers.take()?;
+
+        Some(visualiser.rendered_image().lock().unwrap().clone())
     }
 }
 
@@ -108,6 +136,32 @@ struct ZoomTimeline {
     final_pixel_step: f64,
 }
 impl ZoomTimeline {
+    /// Creates a linear zoom timeline from start to end pixel step over the given duration
+    pub fn linear(
+        start_pixel_step: f64,
+        end_pixel_step: f64,
+        duration: f32,
+        hop_size: f32,
+    ) -> Self {
+        let mut samples = Vec::new();
+
+        let step_change_per_second = (end_pixel_step - start_pixel_step) / duration as f64;
+
+        let mut t = 0.0;
+        while t < duration {
+            let w = start_pixel_step + step_change_per_second * t as f64;
+            samples.push((t, w));
+            t += hop_size;
+        }
+
+        Self {
+            samples,
+            final_pixel_step: end_pixel_step,
+        }
+    }
+
+    /// Builds a complete zoom timeline with integration and normalisation
+    /// based on the provided song manager and audio mapper    
     pub fn build_complete(
         song_manager: &SongManager,
         layer_manager: Arc<Mutex<LayerManager>>,
@@ -129,8 +183,8 @@ impl ZoomTimeline {
             song_manager.song.duration(),
             hop_size,
         )
-        .integrate(start_pixel_step)
-        .normalise()
+        .integrate(start_pixel_step, final_pixel_step)
+        .normalise(start_pixel_step)
     }
 
     pub fn build_unnormalised<F>(
@@ -158,23 +212,62 @@ impl ZoomTimeline {
         }
     }
 
-    pub fn integrate(mut self, start_pixel_step: f64) -> Self {
-        let mut accumulated = start_pixel_step;
+    pub fn integrate(mut self, start_pixel_step: f64, final_pixel_step: f64) -> Self {
+        // Convert per-sample multipliers into log-space and add a small baseline
+        // per-sample log so the overall product maps start->final even if
+        // the raw multipliers multiply to 1.
+        let mut logs: Vec<f64> = Vec::with_capacity(self.samples.len());
+        for (_, w) in self.samples.iter() {
+            let mult = if *w <= 0.0 { 1.0 } else { *w };
+            logs.push(mult.ln());
+        }
 
-        for (_, w) in self.samples.iter_mut() {
-            accumulated += *w;
+        let sum_raw_log: f64 = logs.iter().sum();
+        let n = logs.len() as f64;
+        let desired_total_log = if start_pixel_step <= 0.0 {
+            // fallback
+            (final_pixel_step).ln()
+        } else {
+            (final_pixel_step / start_pixel_step).ln()
+        };
+
+        let extra_per_sample = if n == 0.0 {
+            0.0
+        } else {
+            (desired_total_log - sum_raw_log) / n
+        };
+
+        let mut accumulated = 0.0f64;
+        for (i, (_, w)) in self.samples.iter_mut().enumerate() {
+            accumulated += logs[i] + extra_per_sample;
             *w = accumulated;
         }
 
         self
     }
 
-    pub fn normalise(mut self) -> Self {
-        let sampled_end = self.samples.last().unwrap().1;
-        let scale = self.final_pixel_step / sampled_end;
+    /// Normalise cumulative integrated samples to span from `start_pixel_step` to `self.final_pixel_step`.
+    /// Normalise cumulative log-space samples to span from `start_pixel_step` to `self.final_pixel_step`.
+    /// After this call each sample's value will be the actual `pixel_step` at that timestamp.
+    pub fn normalise(mut self, start_pixel_step: f64) -> Self {
+        let sampled_end_log = self.samples.last().unwrap().1;
+        // Desired total log change to reach final from start: ln(final/start)
+        let desired_total_log = if start_pixel_step <= 0.0 {
+            // fallback to final only
+            self.final_pixel_step.ln()
+        } else {
+            (self.final_pixel_step / start_pixel_step).ln()
+        };
+
+        let scale = if sampled_end_log == 0.0 {
+            0.0
+        } else {
+            desired_total_log / sampled_end_log
+        };
 
         for (_, acc) in self.samples.iter_mut() {
-            *acc *= scale
+            let pixel = start_pixel_step * (*acc * scale).exp();
+            *acc = pixel;
         }
 
         self
@@ -199,7 +292,7 @@ impl ZoomTimeline {
         let (t1, v1) = self.samples[idx - 1];
         let (t2, v2) = self.samples[idx];
 
-        let alpha = (timestamp - t1) / (t2 - timestamp);
+        let alpha = (timestamp - t1) / (t2 - t1);
         v1 + (v2 - v1) * alpha as f64
     }
 }
@@ -225,14 +318,16 @@ impl VideoFrameManager {
     }
 
     /// `move_center_percent`: portion of animation where it should move from start -> end center
-    pub fn get_frame(&self, move_center_percent: f32, video_percent: f32) -> VideoFrame {
-        assert!(0.0 <= move_center_percent && move_center_percent <= 1.0);
-        assert!(0.0 <= video_percent && video_percent <= 1.0);
+    pub fn get_frame(
+        &self,
+        move_center_magnification: f64,
+        current_magnification: f64,
+    ) -> VideoFrame {
         VideoFrame::interpolate(
             &self.start_frame,
             &self.end_frame,
-            move_center_percent,
-            video_percent,
+            move_center_magnification,
+            current_magnification,
         )
     }
 }
@@ -257,15 +352,19 @@ impl VideoFrame {
     pub fn interpolate(
         frame1: &Self,
         frame2: &Self,
-        move_center_percent: f32,
-        video_percent: f32,
+        move_center_magnification: f64,
+        current_magnification: f64,
     ) -> Self {
-        let center = if video_percent < move_center_percent {
-            BigComplex::lerp(
-                &frame1.center,
-                &frame2.center,
-                &dashu_float::FBig::try_from(video_percent / move_center_percent).unwrap(),
-            )
+        let center = if current_magnification < move_center_magnification {
+            let ratio = current_magnification / move_center_magnification;
+
+            // let t_f64 = ratio.powf(0.125); different slope
+            let t_f64 = 1.0 - (1.0 - ratio).powi(8);
+
+            // Convert to FBig and perform high-precision lerp for the centre
+            let t_fbig = dashu_float::FBig::try_from(t_f64).unwrap_or(dashu_float::FBig::ONE);
+
+            BigComplex::lerp(&frame1.center, &frame2.center, &t_fbig)
         } else {
             frame2.center.clone()
         };

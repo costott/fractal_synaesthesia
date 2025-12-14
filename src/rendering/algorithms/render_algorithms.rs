@@ -55,6 +55,17 @@ impl FractalParams {
         }
     }
 }
+impl Default for FractalParams {
+    fn default() -> Self {
+        Self::new(
+            Fractal::Mandelbrot { power: 2 },
+            BigComplex::from_f64s(-0.5, 0.0),
+            crate::ui::menus::fractal_settings::START_PIXEL_STEP,
+            500,
+            0.0,
+        )
+    }
+}
 
 pub struct ReferenceOrbit {
     /// the reference orbit, starting from `0 + 0i`
@@ -64,7 +75,7 @@ pub struct ReferenceOrbit {
     pub max_ref_iteration: usize,
 }
 impl ReferenceOrbit {
-    pub fn new(fractal_params: &Arc<Mutex<FractalParams>>, max_bailout2: f64) -> ReferenceOrbit {
+    pub fn new(fractal_params: Arc<Mutex<FractalParams>>, max_bailout2: f64) -> ReferenceOrbit {
         let params = fractal_params.lock().unwrap();
 
         // let mut ref_z: Vec<Complex> = Vec::with_capacity(params.max_iterations as usize);

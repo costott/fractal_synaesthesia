@@ -80,8 +80,10 @@ pub struct FractalVisualiser {
     layer_renderer: LayersRenderer,
     reference_orbit: Arc<ReferenceOrbit>,
     pub canvas: FractalCanvas,
+
     quality: usize,
     dynamic_quality_manager: Option<DynamicQualityManager>,
+    rendering_params: Option<Arc<Mutex<FractalParams>>>,
 }
 impl FractalVisualiser {
     pub fn new(
@@ -95,7 +97,7 @@ impl FractalVisualiser {
 
         // create initial reference orbit
         let reference_orbit = Arc::new(ReferenceOrbit::new(
-            &Arc::new(Mutex::new(params.clone())),
+            Arc::new(Mutex::new(params.clone())),
             layer_renderer.max_bailout2,
         ));
         let canvas = FractalCanvas::new(canvas_dims);
@@ -111,6 +113,7 @@ impl FractalVisualiser {
             } else {
                 None
             },
+            rendering_params: None,
         }
     }
 
@@ -122,9 +125,10 @@ impl FractalVisualiser {
         self.layer_renderer = LayersRenderer::new(Arc::clone(&self.layer_manager));
     }
 
-    pub fn update_render(&mut self, params: &Arc<Mutex<FractalParams>>) {
+    pub fn update_render(&mut self, params: Arc<Mutex<FractalParams>>) {
+        self.rendering_params = Some(Arc::clone(&params));
         self.reference_orbit = Arc::new(ReferenceOrbit::new(
-            params,
+            Arc::clone(&params),
             self.layer_renderer.max_bailout2,
         ));
         self.layer_manager
@@ -132,22 +136,29 @@ impl FractalVisualiser {
             .unwrap()
             .generate_palettes(params.lock().unwrap().max_iterations as f32);
 
-        self.start_canvas_render(self.quality, params);
+        self.start_canvas_render(self.quality);
     }
 
-    fn start_canvas_render(&mut self, quality: usize, params: &Arc<Mutex<FractalParams>>) {
+    fn start_canvas_render(&mut self, quality: usize) {
+        if self.rendering_params.is_none() {
+            return;
+        }
+
         if let Some(m) = self.dynamic_quality_manager.as_mut() {
             m.start();
         }
         self.canvas.update_render(
             &self.layer_renderer,
-            Arc::clone(&params),
+            Arc::clone(&self.rendering_params.as_ref().unwrap()),
             Arc::clone(&self.reference_orbit),
             quality,
         );
     }
 
-    pub fn improve_quality(&mut self, params: &Arc<Mutex<FractalParams>>) {
+    /// Attempt to improve the quality of the current render if possible
+    ///
+    /// Ensure that this is only called when a render is in progress
+    pub fn improve_quality(&mut self) {
         if !self.finished_render() {
             if self.canvas.last_rendered_quality != self.quality {
                 // already rendering at a different quality, wait for that to finish
@@ -157,7 +168,7 @@ impl FractalVisualiser {
             if let Some(m) = self.dynamic_quality_manager.as_mut() {
                 // check if we need to increase quality to speed up rendering
                 if m.while_initial_render(self.canvas.get_progress(), &mut self.quality) {
-                    self.start_canvas_render(self.quality, params);
+                    self.start_canvas_render(self.quality);
                 }
             }
 
@@ -173,7 +184,7 @@ impl FractalVisualiser {
             m.finished_incremental_render(&mut new_quality);
         }
 
-        self.start_canvas_render(new_quality, params);
+        self.start_canvas_render(new_quality);
     }
 
     pub fn get_progress(&self) -> f32 {

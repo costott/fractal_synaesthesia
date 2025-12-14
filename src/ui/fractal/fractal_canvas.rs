@@ -30,6 +30,10 @@ impl CanvasDimensions {
     pub fn aspect_ratio(&self) -> f32 {
         self.width as f32 / self.height as f32
     }
+
+    pub fn new_from_this_aspect_with_width(&self, width: u16) -> Self {
+        Self::new_from_aspect_with_width(self.aspect_ratio(), width)
+    }
 }
 impl From<(u16, u16)> for CanvasDimensions {
     fn from(value: (u16, u16)) -> Self {

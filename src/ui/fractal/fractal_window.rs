@@ -64,7 +64,7 @@ impl FractalSettingsWindow for FractalWindow {
         _egui_ctx: &egui::Context,
         ctx: &mut crate::ui::menus::fractal_settings::FractalSettingsContext,
     ) {
-        self.fractal_visualiser.improve_quality(&ctx.fractal_params);
+        self.fractal_visualiser.improve_quality();
 
         let changed = self.zoom_window.update(
             self.params.get_bounding_rect(),
@@ -82,7 +82,7 @@ impl FractalSettingsWindow for FractalWindow {
 
         if changed || !self.initialised || ctx.request_render {
             self.fractal_visualiser
-                .update_render(&Arc::clone(&ctx.fractal_params));
+                .update_render(Arc::clone(&ctx.fractal_params));
             self.initialised = true;
             ctx.rendering = true;
             ctx.request_render = false;
