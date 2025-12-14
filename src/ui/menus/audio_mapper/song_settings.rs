@@ -38,7 +38,14 @@ impl SongSettings {
         }
     }
 
-    pub fn update(&mut self, egui_ctx: &egui::Context, ctx: &mut super::AudioMapperContext) {
+    /// Updates the song settings menu
+    ///
+    /// Returns if a new song manager has been created from analysis
+    pub fn update(
+        &mut self,
+        egui_ctx: &egui::Context,
+        ctx: &mut super::AudioMapperContext,
+    ) -> bool {
         // recieve sent song manager
         if let Ok(song_manager) = self.song_manager_reciever.try_recv() {
             self.song_preview_playback
@@ -46,6 +53,7 @@ impl SongSettings {
                 .unwrap()
                 .set_waveform(&song_manager.song_features);
             ctx.song_manager = Some(song_manager);
+            return true;
         }
 
         self.params.sized_area("song_settings", egui_ctx, |ui| {
@@ -81,9 +89,11 @@ impl SongSettings {
                     if self.picked_file != self.old_picked_file {
                         self.old_picked_file = self.picked_file.clone();
 
-                        // Load song preview
+                        // Load song preview + spawn sender to analyze
                         if let Some(audio_file) = &self.picked_file {
                             let path_str = audio_file.to_string_lossy().to_string();
+                            ctx.song_path = Some(path_str.clone());
+
                             let song_type = self.song_type.get_song_type();
                             self.song_preview_playback =
                                 Some(AudioPlayer::new(&path_str).unwrap().set_slider_width(600.0));
@@ -93,15 +103,8 @@ impl SongSettings {
                                 ))
                                 .unwrap(),
                             );
-                        }
-                    }
-
-                    if let Some(song_preview) = &self.song_preview {
-                        if ui.button("analyze").clicked() {
-                            // spawn sender to analyze song
-                            let song_type = self.song_type.get_song_type();
-                            let song_preview = song_preview.clone();
                             let tx = self.song_manager_sender.clone();
+                            let song_preview = self.song_preview.clone().unwrap();
                             std::thread::spawn(move || {
                                 tx.send(
                                     SongManager::new(
@@ -125,5 +128,7 @@ impl SongSettings {
                 }
             });
         });
+
+        false
     }
 }

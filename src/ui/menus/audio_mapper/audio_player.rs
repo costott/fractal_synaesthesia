@@ -127,6 +127,14 @@ impl AudioPlayer {
         })
         .inner
     }
+
+    pub fn get_timestamp(&self) -> f64 {
+        if let Some(scrubbing_position) = self.scrubbing_position {
+            scrubbing_position
+        } else {
+            self.song_player.get_position()
+        }
+    }
 }
 impl egui::Widget for &mut AudioPlayer {
     fn ui(self, ui: &mut egui::Ui) -> egui::Response {

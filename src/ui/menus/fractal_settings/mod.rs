@@ -2,7 +2,7 @@ use std::sync::{Arc, Mutex};
 
 use crate::{
     rendering::{
-        algorithms::render_algorithms::{Fractal, FractalParams},
+        algorithms::render_algorithms::FractalParams,
         manager::{
             layer::{Layer, LayerAlgorithmKind, LayerRange},
             layer_manager::LayerManager,
@@ -10,7 +10,6 @@ use crate::{
         orbit_trap::{OrbitTrapAnalysis, OrbitTrapPoint, OrbitTrapType},
         palette::{Palette, PaletteMappingType},
     },
-    types::BigComplex,
     ui::{
         AppModeScreen, FractalSettings,
         fractal::{fractal_canvas::CanvasDimensions, fractal_window::FractalWindow},
@@ -37,13 +36,7 @@ pub struct FractalSettingsMode {
 }
 impl FractalSettingsMode {
     pub fn new() -> Self {
-        let params = FractalParams::new(
-            Fractal::Mandelbrot { power: 2 },
-            BigComplex::from_f64s(-0.5, 0.0),
-            START_PIXEL_STEP,
-            500,
-            0.0,
-        );
+        let params = FractalParams::default();
 
         let layer_manager = Arc::new(Mutex::new(LayerManager::new(
             vec![

@@ -94,7 +94,7 @@ impl LayerManagerSettings {
                 false,
             );
 
-            tmp_visualiser.update_render(&Arc::new(Mutex::new(fractal_params)));
+            tmp_visualiser.update_render(Arc::new(Mutex::new(fractal_params)));
 
             // Wait for render to be complete
             while !tmp_visualiser.finished_render() {}
