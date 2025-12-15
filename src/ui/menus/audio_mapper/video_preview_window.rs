@@ -26,6 +26,7 @@ pub struct VideoPreviewWindow {
     song_preview_playback: Option<AudioPlayer>,
 
     rendered_timestamp: Option<f64>,
+    are_rendering: bool,
 }
 impl VideoPreviewWindow {
     pub fn new(
@@ -51,6 +52,7 @@ impl VideoPreviewWindow {
             preview_visualiser,
             song_preview_playback: None,
             rendered_timestamp: None,
+            are_rendering: false,
         }
     }
 
@@ -95,9 +97,18 @@ impl VideoPreviewWindow {
             let mut started_timestamp = false;
             if let Some(rendered_timestamp) = self.rendered_timestamp {
                 if (rendered_timestamp - timestamp).abs() < 0.1 {
-                    video_manager.try_end_render_frame(&mut self.preview_visualiser);
+                    if let Some(_) =
+                        video_manager.try_end_render_frame(&mut self.preview_visualiser)
+                    {
+                        self.are_rendering = false;
+                    }
                     started_timestamp = true;
                 }
+            }
+
+            if !started_timestamp && self.are_rendering {
+                video_manager.force_end_render_frame(&mut self.preview_visualiser);
+                self.are_rendering = false;
             }
 
             if !started_timestamp {
@@ -111,6 +122,7 @@ impl VideoPreviewWindow {
                     ctx.song_manager.as_ref().unwrap(),
                     video_percent,
                 );
+                self.are_rendering = true;
             }
         }
 

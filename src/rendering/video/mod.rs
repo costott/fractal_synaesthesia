@@ -73,7 +73,7 @@ impl VideoManager {
         context: &AudioMapperContext,
         audio_mapper: &AudioMapper,
     ) {
-        self.zoom_timeline = ZoomTimeline::build_complete(
+        self.zoom_timeline = ZoomTimeline::build(
             context.song_manager.as_ref().unwrap(),
             context.layer_manager.clone(),
             audio_mapper,
@@ -116,17 +116,18 @@ impl VideoManager {
         visualiser.update_render(frame_params);
     }
 
-    pub fn try_end_render_frame(
-        &mut self,
-        visualiser: &mut FractalVisualiser,
-    ) -> Option<macroquad::texture::Image> {
+    pub fn try_end_render_frame(&mut self, visualiser: &mut FractalVisualiser) -> Option<()> {
         if !visualiser.finished_render() {
             return None;
         }
 
         visualiser.layer_manager = self.original_layers.take()?;
+        Some(())
+    }
 
-        Some(visualiser.rendered_image().lock().unwrap().clone())
+    pub fn force_end_render_frame(&mut self, visualiser: &mut FractalVisualiser) -> Option<()> {
+        visualiser.layer_manager = self.original_layers.take()?;
+        Some(())
     }
 }
 
@@ -160,9 +161,7 @@ impl ZoomTimeline {
         }
     }
 
-    /// Builds a complete zoom timeline with integration and normalisation
-    /// based on the provided song manager and audio mapper    
-    pub fn build_complete(
+    pub fn build(
         song_manager: &SongManager,
         layer_manager: Arc<Mutex<LayerManager>>,
         audio_mapper: &AudioMapper,
@@ -170,107 +169,36 @@ impl ZoomTimeline {
         final_pixel_step: f64,
         hop_size: f32,
     ) -> Self {
-        Self::build_unnormalised(
-            |layer_manager, timestamp| {
-                song_manager.get_zoom_multiplier_at_timestamp(
-                    layer_manager.clone(),
-                    audio_mapper,
-                    timestamp,
-                )
-            },
-            layer_manager,
-            final_pixel_step,
-            song_manager.song.duration(),
-            hop_size,
-        )
-        .integrate(start_pixel_step, final_pixel_step)
-        .normalise(start_pixel_step)
-    }
+        let samples = (song_manager.song.duration() / hop_size) as usize;
 
-    pub fn build_unnormalised<F>(
-        song_sampler: F,
-        layer_manager: Arc<Mutex<LayerManager>>,
-        final_pixel_step: f64,
-        duration: f32,
-        hop_size: f32,
-    ) -> Self
-    where
-        F: Fn(Arc<Mutex<LayerManager>>, f32) -> f64,
-    {
-        let mut samples = Vec::new();
-
+        // integrate zoom multipliers over time
+        let mut cumulative = Vec::with_capacity(samples);
         let mut t = 0.0;
-        while t < duration {
-            let w = song_sampler(layer_manager.clone(), t);
-            samples.push((t, w));
+        let mut sum = 0.0; // total weighted zoom amount W
+        for _ in 0..samples {
+            let m = song_manager.get_zoom_multiplier_at_timestamp(
+                layer_manager.clone(),
+                audio_mapper,
+                t,
+            );
+            sum += m;
+            cumulative.push((t, sum));
             t += hop_size;
         }
 
+        // normalise cumulative multipliers to span from start_pixel_step to final_pixel_step
+        let log_p0 = start_pixel_step.ln();
+        let log_p1 = final_pixel_step.ln();
+        for (_, m) in cumulative.iter_mut() {
+            let u = *m / sum;
+            let log_p = (1.0 - u) * log_p0 + u * log_p1;
+            *m = log_p.exp();
+        }
+
         Self {
-            samples,
+            samples: cumulative,
             final_pixel_step,
         }
-    }
-
-    pub fn integrate(mut self, start_pixel_step: f64, final_pixel_step: f64) -> Self {
-        // Convert per-sample multipliers into log-space and add a small baseline
-        // per-sample log so the overall product maps start->final even if
-        // the raw multipliers multiply to 1.
-        let mut logs: Vec<f64> = Vec::with_capacity(self.samples.len());
-        for (_, w) in self.samples.iter() {
-            let mult = if *w <= 0.0 { 1.0 } else { *w };
-            logs.push(mult.ln());
-        }
-
-        let sum_raw_log: f64 = logs.iter().sum();
-        let n = logs.len() as f64;
-        let desired_total_log = if start_pixel_step <= 0.0 {
-            // fallback
-            (final_pixel_step).ln()
-        } else {
-            (final_pixel_step / start_pixel_step).ln()
-        };
-
-        let extra_per_sample = if n == 0.0 {
-            0.0
-        } else {
-            (desired_total_log - sum_raw_log) / n
-        };
-
-        let mut accumulated = 0.0f64;
-        for (i, (_, w)) in self.samples.iter_mut().enumerate() {
-            accumulated += logs[i] + extra_per_sample;
-            *w = accumulated;
-        }
-
-        self
-    }
-
-    /// Normalise cumulative integrated samples to span from `start_pixel_step` to `self.final_pixel_step`.
-    /// Normalise cumulative log-space samples to span from `start_pixel_step` to `self.final_pixel_step`.
-    /// After this call each sample's value will be the actual `pixel_step` at that timestamp.
-    pub fn normalise(mut self, start_pixel_step: f64) -> Self {
-        let sampled_end_log = self.samples.last().unwrap().1;
-        // Desired total log change to reach final from start: ln(final/start)
-        let desired_total_log = if start_pixel_step <= 0.0 {
-            // fallback to final only
-            self.final_pixel_step.ln()
-        } else {
-            (self.final_pixel_step / start_pixel_step).ln()
-        };
-
-        let scale = if sampled_end_log == 0.0 {
-            0.0
-        } else {
-            desired_total_log / sampled_end_log
-        };
-
-        for (_, acc) in self.samples.iter_mut() {
-            let pixel = start_pixel_step * (*acc * scale).exp();
-            *acc = pixel;
-        }
-
-        self
     }
 
     pub fn sample_at(&self, timestamp: f32) -> f64 {
