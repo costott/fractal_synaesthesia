@@ -21,6 +21,35 @@ impl AudioMapper {
         }
     }
 
+    pub fn test() -> Self {
+        let on_beat_layer_actions = HashMap::from([(
+            0,
+            vec![
+                // OnBeatLayerAction::Flash(macroquad::prelude::WHITE),
+                OnBeatLayerAction::ShiftPalette(0.25),
+            ],
+        )]);
+
+        let volume_layer_actions =
+            HashMap::from([(0, ContinousSampleZoomAction::AddZoomSpeed(1.0))]);
+
+        Self {
+            on_beat: OnBeatMapper {
+                layer_actions: on_beat_layer_actions,
+                zoom_actions: HashMap::new(),
+                attack_duration: 0.1,
+                decay_duration: 0.1,
+            },
+            tempo: ContinuousSampleMapper::empty(),
+            volume: ContinuousSampleMapper {
+                feature_picker: Box::new(|features: &FrameFeatures| features.volume),
+                layer_actions: HashMap::new(),
+                zoom_actions: volume_layer_actions,
+            },
+            pitch: ContinuousSampleMapper::empty(),
+        }
+    }
+
     pub fn run_on_layer(
         &self,
         layer: &Layer,
@@ -56,6 +85,9 @@ impl AudioMapper {
         increase += self
             .on_beat
             .get_zoom_speed_increase_at(layer_index, song_features, timestamp);
+        for mapper in &[&self.tempo, &self.volume, &self.pitch] {
+            increase += mapper.get_zoom_speed_increase_at(layer_index, song_features, timestamp);
+        }
         increase
     }
 }
@@ -87,6 +119,7 @@ impl LayerEffect {
         let mut applied_layer = layer.clone();
 
         applied_layer.palette.add_offset(self.palette_shift);
+        applied_layer.palette.apply_flash_colour(self.flash_colour);
 
         applied_layer
     }
@@ -318,7 +351,29 @@ impl Mapper for ContinuousSampleMapper {
         song_features: &SongFeatures,
         timestamp: f32,
     ) -> f64 {
-        0.0
+        let mut increase = 0.0;
+
+        let feature_timestamps = song_features.attribute_timestamps(self.feature_picker.as_ref());
+        let feature_timestamps = feature_timestamps.as_slice();
+        let min_value = feature_timestamps
+            .iter()
+            .map(|(_, v)| *v)
+            .fold(f32::MAX, f32::min);
+        let max_value = feature_timestamps
+            .iter()
+            .map(|(_, v)| *v)
+            .fold(f32::MIN, f32::max);
+        let intensity = self.get_intensity(timestamp, feature_timestamps, max_value, min_value);
+
+        let action = self.zoom_actions.get(&layer_index);
+        if let Some(zoom_action) = action {
+            match zoom_action {
+                ContinousSampleZoomAction::AddZoomSpeed(p) => increase += *p * intensity as f64,
+                ContinousSampleZoomAction::Nothing => {}
+            }
+        }
+
+        increase
     }
 }
 

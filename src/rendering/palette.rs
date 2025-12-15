@@ -266,6 +266,12 @@ impl Palette {
     pub fn remove_point(&mut self, index: usize) {
         self.colour_map.remove_point(index);
     }
+
+    pub fn apply_flash_colour(&mut self, flash_colour: Color) {
+        for point in self.colour_map.get_map().iter_mut() {
+            point.colour = alpha_blend(point.colour, flash_colour);
+        }
+    }
 }
 impl Default for Palette {
     fn default() -> Self {
@@ -280,7 +286,7 @@ impl Default for Palette {
 }
 
 /// Map of colour points that outlines the significant colours for a palette.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct ColourMap {
     inner: Vec<ColourPoint>,
 }
@@ -363,7 +369,7 @@ impl Default for ColourMap {
 
 /// A colour and position (between 0 and 100) in a colour map used for significant colour points
 /// in the palette.
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct ColourPoint {
     pub colour: Color,
     /// Position of the point in the palette as a percentance

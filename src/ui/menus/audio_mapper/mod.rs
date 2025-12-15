@@ -63,7 +63,7 @@ impl AudioMapperMode {
                 preview_dims,
                 &settings.params,
             ),
-            audio_mapper: AudioMapper::empty(),
+            audio_mapper: AudioMapper::test(),
             context,
             end_fractal_settings: settings,
         }

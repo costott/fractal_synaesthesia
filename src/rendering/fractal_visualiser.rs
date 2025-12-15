@@ -136,6 +136,8 @@ impl FractalVisualiser {
             .unwrap()
             .generate_palettes(params.lock().unwrap().max_iterations as f32);
 
+        self.update_layers();
+
         self.start_canvas_render(self.quality);
     }
 

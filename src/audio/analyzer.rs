@@ -348,7 +348,11 @@ impl SongFeatures {
     }
 
     pub fn beat_timestamps(&self) -> Vec<f32> {
-        self.0.iter().map(|frame| frame.timestamp).collect()
+        self.0
+            .iter()
+            .filter(|ff| ff.is_beat)
+            .map(|frame| frame.timestamp)
+            .collect()
     }
 
     pub fn attribute_timestamps<F>(&self, attribute_fn: F) -> Vec<(f32, f32)>
