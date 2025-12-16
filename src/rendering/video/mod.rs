@@ -68,19 +68,16 @@ impl VideoManager {
     }
 
     /// Rebuild the zoom timeline based on the updated audio mapper and context
-    pub fn updated_audio_mapper(
-        &mut self,
-        context: &AudioMapperContext,
-        audio_mapper: &AudioMapper,
-    ) {
+    pub fn updated_audio_mapper(&mut self, context: &AudioMapperContext) -> Option<()> {
         self.zoom_timeline = ZoomTimeline::build(
-            context.song_manager.as_ref().unwrap(),
+            context.song_manager.as_ref()?,
             context.layer_manager.clone(),
-            audio_mapper,
+            &context.audio_mapper,
             crate::ui::menus::fractal_settings::START_PIXEL_STEP,
             self.zoom_timeline.final_pixel_step,
             self.hop_size,
         );
+        Some(())
     }
 
     pub fn start_render_frame(

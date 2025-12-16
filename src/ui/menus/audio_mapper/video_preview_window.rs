@@ -88,7 +88,6 @@ impl VideoPreviewWindow {
         _egui_ctx: &egui::Context,
         ctx: &mut super::AudioMapperContext,
         video_manager: &mut VideoManager,
-        audio_mapper: &AudioMapper,
     ) {
         if let Some(audio_player) = self.song_preview_playback.as_ref() {
             let timestamp = audio_player.get_timestamp();
@@ -118,7 +117,7 @@ impl VideoPreviewWindow {
                     timestamp as f32 / ctx.song_manager.as_ref().unwrap().song.duration();
                 video_manager.start_render_frame(
                     &mut self.preview_visualiser,
-                    audio_mapper,
+                    &ctx.audio_mapper,
                     ctx.song_manager.as_ref().unwrap(),
                     video_percent,
                 );
@@ -130,13 +129,6 @@ impl VideoPreviewWindow {
 
         self.params
             .sized_area("video_preview_window", _egui_ctx, |ui| {
-                ui.painter().rect_stroke(
-                    ui.max_rect(),
-                    0.0,
-                    egui::Stroke::new(1.0, egui::Color32::LIGHT_GRAY),
-                    egui::StrokeKind::Middle,
-                );
-
                 ui.add_space(20.0 + self.preview_visualiser.canvas.dims.height as f32);
 
                 ui.vertical_centered(|ui| {
