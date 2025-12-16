@@ -23,6 +23,13 @@ impl CanvasDimensions {
         }
     }
 
+    pub fn new_from_aspect_with_height(aspect_ratio: f32, height: u16) -> Self {
+        Self {
+            width: (height as f32 * aspect_ratio) as u16,
+            height,
+        }
+    }
+
     pub fn total_pixels(&self) -> usize {
         self.width as usize * self.height as usize
     }
@@ -33,6 +40,10 @@ impl CanvasDimensions {
 
     pub fn new_from_this_aspect_with_width(&self, width: u16) -> Self {
         Self::new_from_aspect_with_width(self.aspect_ratio(), width)
+    }
+
+    pub fn new_from_this_aspect_with_height(&self, height: u16) -> Self {
+        Self::new_from_aspect_with_height(self.aspect_ratio(), height)
     }
 }
 impl From<(u16, u16)> for CanvasDimensions {

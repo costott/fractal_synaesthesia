@@ -141,6 +141,21 @@ impl FractalSettingsMode {
 }
 impl AppModeScreen for FractalSettingsMode {
     fn update(&mut self, egui_ctx: &egui::Context) -> bool {
+        egui_ctx.style_mut(|style| {
+            style.visuals.override_text_color = Some(egui::Color32::DARK_GRAY);
+            style.visuals.extreme_bg_color = egui::Color32::LIGHT_GRAY;
+            style.visuals.widgets.inactive.bg_fill = egui::Color32::LIGHT_GRAY;
+            style.visuals.widgets.inactive.weak_bg_fill = egui::Color32::LIGHT_GRAY;
+            style.visuals.widgets.hovered.bg_fill = egui::Color32::LIGHT_GRAY;
+            style.visuals.widgets.hovered.weak_bg_fill = egui::Color32::LIGHT_GRAY;
+            style.visuals.widgets.active.bg_fill = egui::Color32::LIGHT_GRAY;
+            style.visuals.widgets.active.weak_bg_fill = egui::Color32::LIGHT_GRAY;
+            style.visuals.widgets.open.bg_fill = egui::Color32::LIGHT_GRAY;
+            style.visuals.widgets.open.weak_bg_fill = egui::Color32::LIGHT_GRAY;
+            style.visuals.window_fill = egui::Color32::LIGHT_GRAY;
+            style.visuals.selection.bg_fill = crate::ui::ACCENT_COLOUR;
+        });
+
         self.main_fractal.update(egui_ctx, &mut self.context);
         self.sidebar.update(egui_ctx, &mut self.context);
         let save_and_close = self.controls.update(egui_ctx, &mut self.context);

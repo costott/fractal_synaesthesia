@@ -16,6 +16,7 @@ mod window;
 
 pub const NORMAL_TEXT_SIZE: f32 = 15.0;
 pub const ACCENT_COLOUR: egui::Color32 = egui::Color32::from_rgb(223, 244, 255);
+pub const DARK_ACCENT_COLOUR: egui::Color32 = egui::Color32::from_rgb(50, 75, 100);
 
 enum AppMode {
     FractalSettings(FractalSettingsMode),
@@ -34,21 +35,6 @@ impl App {
 
     pub fn update(&mut self) {
         egui_macroquad::ui(|egui_ctx| {
-            egui_ctx.style_mut(|style| {
-                style.visuals.override_text_color = Some(egui::Color32::DARK_GRAY);
-                style.visuals.extreme_bg_color = egui::Color32::LIGHT_GRAY;
-                style.visuals.widgets.inactive.bg_fill = egui::Color32::LIGHT_GRAY;
-                style.visuals.widgets.inactive.weak_bg_fill = egui::Color32::LIGHT_GRAY;
-                style.visuals.widgets.hovered.bg_fill = egui::Color32::LIGHT_GRAY;
-                style.visuals.widgets.hovered.weak_bg_fill = egui::Color32::LIGHT_GRAY;
-                style.visuals.widgets.active.bg_fill = egui::Color32::LIGHT_GRAY;
-                style.visuals.widgets.active.weak_bg_fill = egui::Color32::LIGHT_GRAY;
-                style.visuals.widgets.open.bg_fill = egui::Color32::LIGHT_GRAY;
-                style.visuals.widgets.open.weak_bg_fill = egui::Color32::LIGHT_GRAY;
-                style.visuals.window_fill = egui::Color32::LIGHT_GRAY;
-                style.visuals.selection.bg_fill = crate::ui::ACCENT_COLOUR;
-            });
-
             match &mut self.mode {
                 AppMode::FractalSettings(fractal_settings) => {
                     let to_swap = fractal_settings.update(egui_ctx);
@@ -94,6 +80,9 @@ pub struct FractalSettings {
 pub trait Dropdown<T>: Clone + PartialEq {
     fn get_variants() -> Vec<T>;
     fn get_text(&self) -> &str;
+    fn get_tooltip(&self) -> Option<String> {
+        None
+    }
 }
 
 /// Displays a `Combobox` and returns whether the current value was changed
@@ -107,7 +96,13 @@ where
         .show_ui(ui, |ui| {
             for item in T::get_variants() {
                 let text = item.get_text().to_string();
-                ui.selectable_value(current_val, item, text);
+                let maybe_tooltip = item.get_tooltip();
+
+                let selectable_value = ui.selectable_value(current_val, item, text);
+
+                if let Some(tooltip) = maybe_tooltip {
+                    selectable_value.on_hover_text(tooltip);
+                }
             }
         });
     *current_val != before
