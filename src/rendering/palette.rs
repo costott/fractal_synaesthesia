@@ -1,5 +1,6 @@
 use egui::Rgba;
 
+use core::f32;
 /// A colour palette used for rendering
 use macroquad::prelude::*;
 use std::collections::HashSet;
@@ -146,6 +147,11 @@ impl Palette {
         true
     }
 
+    pub fn multiply_length(&mut self, factor: f32) {
+        let new = self.length * factor;
+        self.length = new.clamp(f32::MIN_POSITIVE, 1.0);
+    }
+
     pub fn get_offset(&self) -> f32 {
         self.offset
     }
@@ -165,7 +171,7 @@ impl Palette {
     /// Increment the offset by `other`.
     pub fn add_offset(&mut self, other: f32) {
         let new = self.offset + other;
-        self.offset = new % 1.0;
+        self.offset = (new + 1.0) % 1.0;
     }
 
     /// Returns the colour at the given `percentage`.
@@ -270,6 +276,33 @@ impl Palette {
     pub fn apply_flash_colour(&mut self, flash_colour: Color) {
         for point in self.colour_map.get_map().iter_mut() {
             point.colour = alpha_blend(point.colour, flash_colour);
+        }
+    }
+
+    pub fn brighten(&mut self, factor: f32) {
+        for point in self.colour_map.get_map().iter_mut() {
+            point.colour = Color::new(
+                (point.colour.r * factor).clamp(0.0, 1.0),
+                (point.colour.g * factor).clamp(0.0, 1.0),
+                (point.colour.b * factor).clamp(0.0, 1.0),
+                point.colour.a,
+            );
+        }
+    }
+
+    pub fn shift_hue(&mut self, shift: f32) {
+        for point in self.colour_map.get_map().iter_mut() {
+            let (mut h, s, l) = macroquad::color::rgb_to_hsl(point.colour);
+            h = (h + shift) % 1.0;
+            point.colour = macroquad::color::hsl_to_rgb(h, s, l);
+        }
+    }
+
+    pub fn saturate(&mut self, factor: f32) {
+        for point in self.colour_map.get_map().iter_mut() {
+            let (h, mut s, l) = macroquad::color::rgb_to_hsl(point.colour);
+            s = (s * factor).clamp(0.0, 1.0);
+            point.colour = macroquad::color::hsl_to_rgb(h, s, l);
         }
     }
 }
