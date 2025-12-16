@@ -92,6 +92,22 @@ impl AudioMapper {
         increase
     }
 
+    pub fn get_rotation_increase_at_timestamp(
+        &self,
+        layer_index: usize,
+        song_features: &SongFeatures,
+        timestamp: f32,
+    ) -> f64 {
+        let mut increase = 0.0;
+        increase += self
+            .on_beat
+            .get_rotation_increase_at(layer_index, song_features, timestamp);
+        for mapper in &[&self.tempo, &self.volume, &self.pitch] {
+            increase += mapper.get_rotation_increase_at(layer_index, song_features, timestamp);
+        }
+        increase
+    }
+
     pub fn on_beat_layer_actions_mut(&mut self) -> &mut HashMap<usize, Vec<LayerAction>> {
         &mut self.on_beat.layer_actions
     }
@@ -138,6 +154,12 @@ pub trait Mapper {
     ) -> LayerEffect;
 
     fn get_zoom_speed_increase_at(
+        &self,
+        layer_index: usize,
+        song_features: &SongFeatures,
+        timestamp: f32,
+    ) -> f64;
+    fn get_rotation_increase_at(
         &self,
         layer_index: usize,
         song_features: &SongFeatures,
@@ -219,6 +241,7 @@ impl LayerEffect {
     pub fn apply_action(&mut self, action: &LayerAction, intensity: f32) {
         match action {
             LayerAction::AddZoomSpeed(_) => {} // Handled elsewhere
+            LayerAction::Rotate(_) => {}       // Handled elsewhere
             LayerAction::Flash(c) => {
                 self.combine_flash_colours(c.with_alpha(c.a * intensity));
             }
@@ -237,7 +260,6 @@ impl LayerEffect {
             LayerAction::Saturate(factor) => {
                 self.add_saturate_factor(*factor * intensity);
             }
-            LayerAction::Rotate(_) => todo!(),
         }
     }
 }
@@ -255,9 +277,10 @@ pub enum LayerAction {
     Saturate(f32),
 }
 impl LayerAction {
-    pub fn changes_zoom_timeline(&self) -> bool {
+    pub fn timeline_needs_recompute(&self) -> bool {
         match self {
             LayerAction::AddZoomSpeed(_) => true,
+            LayerAction::Rotate(_) => true,
             _ => false,
         }
     }
@@ -310,7 +333,7 @@ impl crate::ui::Dropdown<LayerAction> for LayerAction {
                     "Increase the palette length of the layer by this factor at maximum intensity"
                 }
                 LayerAction::Rotate(_) => {
-                    "Rotate the video by this amount (in radians) at maximum intensity"
+                    "Rotate the video by this amount (in degrees) at maximum intensity"
                 }
                 LayerAction::Brighten(_) => {
                     "Increase the brightness of the palette of the layer by this factor at maximum intensity"
@@ -361,7 +384,7 @@ impl crate::ui::menus::audio_mapper::audio_mapping_window::MappingAction for Lay
                 response.changed()
             }
             LayerAction::Rotate(angle) => {
-                let response = ui.add(egui::DragValue::new(angle).speed(0.1));
+                let response = ui.add(egui::Slider::new(angle, -360.0..=360.0));
                 response.changed()
             }
             LayerAction::Brighten(factor) => {
@@ -449,8 +472,7 @@ impl Mapper for OnBeatMapper {
         let beat_intensity =
             self.intensity_from_nearest_beat(timestamp, song_features.beat_timestamps().as_slice());
 
-        let maybe_action = self.layer_actions.get(&layer_index);
-        if let Some(actions) = maybe_action {
+        if let Some(actions) = self.layer_actions.get(&layer_index) {
             for beat_action in actions {
                 effect.apply_action(beat_action, beat_intensity);
             }
@@ -469,11 +491,35 @@ impl Mapper for OnBeatMapper {
         let beat_intensity =
             self.intensity_from_nearest_beat(timestamp, song_features.beat_timestamps().as_slice());
 
-        let actions = self.layer_actions.get(&layer_index);
-        if let Some(found_actions) = actions {
+        if let Some(found_actions) = self.layer_actions.get(&layer_index) {
             for action in found_actions {
                 match action {
                     LayerAction::AddZoomSpeed(p) => increase += *p * beat_intensity as f64,
+                    _ => {}
+                }
+            }
+        }
+
+        increase
+    }
+
+    fn get_rotation_increase_at(
+        &self,
+        layer_index: usize,
+        song_features: &SongFeatures,
+        timestamp: f32,
+    ) -> f64 {
+        let mut increase = 0.0;
+
+        let beat_intensity =
+            self.intensity_from_nearest_beat(timestamp, song_features.beat_timestamps().as_slice());
+
+        if let Some(found_actions) = self.layer_actions.get(&layer_index) {
+            for action in found_actions {
+                match action {
+                    LayerAction::Rotate(deg) => {
+                        increase += deg.to_radians() * beat_intensity as f64
+                    }
                     _ => {}
                 }
             }
@@ -594,15 +640,8 @@ impl ContinuousSampleMapper {
             (average_value - min_value) / (max_value - min_value)
         }
     }
-}
-impl Mapper for ContinuousSampleMapper {
-    fn layer_effect_at(
-        &self,
-        layer_index: usize,
-        song_features: &SongFeatures,
-        timestamp: f32,
-    ) -> LayerEffect {
-        let mut effect = LayerEffect::none();
+
+    fn intensity_from_song_features(&self, timestamp: f32, song_features: &SongFeatures) -> f32 {
         let feature_timestamps = song_features.attribute_timestamps(self.feature_picker.as_ref());
         let feature_timestamps = feature_timestamps.as_slice();
 
@@ -615,7 +654,19 @@ impl Mapper for ContinuousSampleMapper {
             .map(|(_, v)| *v)
             .fold(f32::MIN, f32::max);
 
-        let intensity = self.get_intensity(timestamp, feature_timestamps, max_value, min_value);
+        self.get_intensity(timestamp, feature_timestamps, max_value, min_value)
+    }
+}
+impl Mapper for ContinuousSampleMapper {
+    fn layer_effect_at(
+        &self,
+        layer_index: usize,
+        song_features: &SongFeatures,
+        timestamp: f32,
+    ) -> LayerEffect {
+        let mut effect = LayerEffect::none();
+
+        let intensity = self.intensity_from_song_features(timestamp, song_features);
 
         if let Some(actions) = self.layer_actions.get(&layer_index) {
             for layer_action in actions {
@@ -634,24 +685,34 @@ impl Mapper for ContinuousSampleMapper {
     ) -> f64 {
         let mut increase = 0.0;
 
-        let feature_timestamps = song_features.attribute_timestamps(self.feature_picker.as_ref());
-        let feature_timestamps = feature_timestamps.as_slice();
-
-        let min_value = feature_timestamps
-            .iter()
-            .map(|(_, v)| *v)
-            .fold(f32::MAX, f32::min);
-        let max_value = feature_timestamps
-            .iter()
-            .map(|(_, v)| *v)
-            .fold(f32::MIN, f32::max);
-
-        let intensity = self.get_intensity(timestamp, feature_timestamps, max_value, min_value);
+        let intensity = self.intensity_from_song_features(timestamp, song_features);
 
         if let Some(actions) = self.layer_actions.get(&layer_index) {
             for layer_action in actions {
                 match layer_action {
                     LayerAction::AddZoomSpeed(p) => increase += *p * intensity as f64,
+                    _ => {}
+                }
+            }
+        }
+
+        increase
+    }
+
+    fn get_rotation_increase_at(
+        &self,
+        layer_index: usize,
+        song_features: &SongFeatures,
+        timestamp: f32,
+    ) -> f64 {
+        let mut increase = 0.0;
+
+        let intensity = self.intensity_from_song_features(timestamp, song_features);
+
+        if let Some(actions) = self.layer_actions.get(&layer_index) {
+            for layer_action in actions {
+                match layer_action {
+                    LayerAction::Rotate(deg) => increase += deg.to_radians() * intensity as f64,
                     _ => {}
                 }
             }
