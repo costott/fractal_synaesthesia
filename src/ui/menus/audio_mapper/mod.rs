@@ -137,7 +137,7 @@ pub struct AudioMapperContext {
 impl AudioMapperContext {
     pub fn load_from_fractal_settings(settings: &FractalSettings) -> Self {
         Self {
-            audio_mapper: AudioMapper::test(),
+            audio_mapper: AudioMapper::empty(),
             layer_manager: Arc::new(Mutex::new(settings.layers.clone())),
             video_dimensions: CanvasDimensions {
                 width: 1920,

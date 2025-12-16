@@ -15,9 +15,9 @@ impl AudioMapper {
     pub fn empty() -> Self {
         Self {
             on_beat: OnBeatMapper::empty(),
-            tempo: ContinuousSampleMapper::empty(),
-            volume: ContinuousSampleMapper::empty(),
-            pitch: ContinuousSampleMapper::empty(),
+            tempo: ContinuousSampleMapper::empty(Box::new(|f| f.bpm)),
+            volume: ContinuousSampleMapper::empty(Box::new(|f| f.volume)),
+            pitch: ContinuousSampleMapper::empty(Box::new(|f| f.pitch)),
         }
     }
 
@@ -38,7 +38,7 @@ impl AudioMapper {
                 attack_duration: 0.1,
                 decay_duration: 0.1,
             },
-            tempo: ContinuousSampleMapper::empty(),
+            tempo: ContinuousSampleMapper::empty(Box::new(|f| f.bpm)),
             volume: ContinuousSampleMapper {
                 feature_picker: Box::new(|features: &FrameFeatures| features.volume),
                 window: ContinuousSampleWindow {
@@ -47,7 +47,7 @@ impl AudioMapper {
                 },
                 layer_actions: volume_layer_actions,
             },
-            pitch: ContinuousSampleMapper::empty(),
+            pitch: ContinuousSampleMapper::empty(Box::new(|f| f.pitch)),
         }
     }
 
@@ -147,10 +147,14 @@ pub trait Mapper {
 
 /// Effect to apply to a layer
 pub struct LayerEffect {
-    /// Shift a layer's pallete's offset by a certain amoung
-    palette_shift: f32,
     /// Make an entire layer's palette flash this colour
     flash_colour: macroquad::color::Color,
+    /// Shift a layer's pallete's offset by a certain amoung
+    palette_shift: f32,
+    palette_length_multiplier: f32,
+    brighten_factor: f32,
+    hue_shift: f32,
+    saturate_factor: f32,
 }
 impl LayerEffect {
     pub fn apply_to_layer(&self, layer: &Layer) -> Layer {
@@ -158,6 +162,12 @@ impl LayerEffect {
 
         applied_layer.palette.add_offset(self.palette_shift);
         applied_layer.palette.apply_flash_colour(self.flash_colour);
+        applied_layer
+            .palette
+            .multiply_length(self.palette_length_multiplier + 1.0);
+        applied_layer.palette.brighten(self.brighten_factor + 1.0);
+        applied_layer.palette.shift_hue(self.hue_shift);
+        applied_layer.palette.saturate(self.saturate_factor + 1.0);
 
         applied_layer
     }
@@ -166,21 +176,69 @@ impl LayerEffect {
         Self {
             palette_shift: 0.0,
             flash_colour: macroquad::prelude::BLANK,
+            palette_length_multiplier: 0.0,
+            brighten_factor: 0.0,
+            hue_shift: 0.0,
+            saturate_factor: 0.0,
         }
     }
 
     pub fn combine_with(&mut self, other: &Self) {
-        self.add_palette_shift(other.palette_shift);
         self.combine_flash_colours(other.flash_colour);
-    }
-
-    pub fn add_palette_shift(&mut self, palette_shift: f32) {
-        self.palette_shift += palette_shift;
-        self.palette_shift = self.palette_shift % 1.0;
+        self.add_palette_shift(other.palette_shift);
+        self.add_palette_length_multiplier(other.palette_length_multiplier);
+        self.add_brighten_factor(other.brighten_factor);
+        self.add_hue_shift(other.hue_shift);
+        self.add_saturate_factor(other.saturate_factor);
     }
 
     pub fn combine_flash_colours(&mut self, flash_colour: macroquad::color::Color) {
         self.flash_colour = alpha_blend(self.flash_colour, flash_colour);
+    }
+
+    pub fn add_palette_shift(&mut self, palette_shift: f32) {
+        self.palette_shift += palette_shift;
+    }
+
+    pub fn add_palette_length_multiplier(&mut self, length_multiplier: f32) {
+        self.palette_length_multiplier += length_multiplier;
+    }
+
+    pub fn add_brighten_factor(&mut self, brighten_factor: f32) {
+        self.brighten_factor += brighten_factor;
+    }
+
+    pub fn add_hue_shift(&mut self, hue_shift: f32) {
+        self.hue_shift += hue_shift;
+    }
+
+    pub fn add_saturate_factor(&mut self, saturate_factor: f32) {
+        self.saturate_factor += saturate_factor;
+    }
+
+    pub fn apply_action(&mut self, action: &LayerAction, intensity: f32) {
+        match action {
+            LayerAction::AddZoomSpeed(_) => {} // Handled elsewhere
+            LayerAction::Flash(c) => {
+                self.combine_flash_colours(c.with_alpha(c.a * intensity));
+            }
+            LayerAction::ShiftPalette(shift) => {
+                self.add_palette_shift(*shift * intensity);
+            }
+            LayerAction::ChangePaletteLength(factor) => {
+                self.add_palette_length_multiplier(*factor * intensity);
+            }
+            LayerAction::Brighten(factor) => {
+                self.add_brighten_factor(*factor * intensity);
+            }
+            LayerAction::ShiftHue(shift) => {
+                self.add_hue_shift(*shift * intensity);
+            }
+            LayerAction::Saturate(factor) => {
+                self.add_saturate_factor(*factor * intensity);
+            }
+            LayerAction::Rotate(_) => todo!(),
+        }
     }
 }
 
@@ -190,7 +248,7 @@ pub enum LayerAction {
     AddZoomSpeed(f64),
     Flash(macroquad::color::Color),
     ShiftPalette(f32),
-    ShiftPaletteLength(f32),
+    ChangePaletteLength(f32),
     Rotate(f64),
     Brighten(f32),
     ShiftHue(f32),
@@ -215,7 +273,7 @@ impl crate::ui::Dropdown<LayerAction> for LayerAction {
             LayerAction::AddZoomSpeed(0.0),
             LayerAction::Flash(macroquad::prelude::BLANK),
             LayerAction::ShiftPalette(0.0),
-            LayerAction::ShiftPaletteLength(0.0),
+            LayerAction::ChangePaletteLength(0.0),
             LayerAction::Rotate(0.0),
             LayerAction::Brighten(0.0),
             LayerAction::ShiftHue(0.0),
@@ -228,7 +286,7 @@ impl crate::ui::Dropdown<LayerAction> for LayerAction {
             LayerAction::AddZoomSpeed(_) => "Add Zoom Speed",
             LayerAction::Flash(_) => "Flash Colour",
             LayerAction::ShiftPalette(_) => "Shift Palette",
-            LayerAction::ShiftPaletteLength(_) => "Shift Palette Length",
+            LayerAction::ChangePaletteLength(_) => "Change Palette Length",
             LayerAction::Rotate(_) => "Rotate",
             LayerAction::Brighten(_) => "Brighten",
             LayerAction::ShiftHue(_) => "Shift Hue",
@@ -240,7 +298,7 @@ impl crate::ui::Dropdown<LayerAction> for LayerAction {
         Some(
             match self {
                 LayerAction::AddZoomSpeed(_) => {
-                    "Increase the zoom speed of the video by this multiplier at maximum intensity"
+                    "Multiplier of additional zoom speed to add at maximum intensity"
                 }
                 LayerAction::Flash(_) => {
                     "Flash the palette of the layer with this colour at maximum intensity"
@@ -248,20 +306,20 @@ impl crate::ui::Dropdown<LayerAction> for LayerAction {
                 LayerAction::ShiftPalette(_) => {
                     "Shift the palette offset of the layer by this amount at maximum intensity"
                 }
-                LayerAction::ShiftPaletteLength(_) => {
-                    "Shift the palette length of the layer by this amount at maximum intensity"
+                LayerAction::ChangePaletteLength(_) => {
+                    "Increase the palette length of the layer by this factor at maximum intensity"
                 }
                 LayerAction::Rotate(_) => {
                     "Rotate the video by this amount (in radians) at maximum intensity"
                 }
                 LayerAction::Brighten(_) => {
-                    "Brighten the palette of the layer by this amount at maximum intensity"
+                    "Increase the brightness of the palette of the layer by this factor at maximum intensity"
                 }
                 LayerAction::ShiftHue(_) => {
                     "Shift the hue of the layer's palette by this amount at maximum intensity"
                 }
                 LayerAction::Saturate(_) => {
-                    "Saturate the palette of the layer by this amount at maximum intensity"
+                    "Increase the saturation of the palette of the layer by this factor at maximum intensity"
                 }
             }
             .to_string(),
@@ -291,12 +349,40 @@ impl crate::ui::menus::audio_mapper::audio_mapping_window::MappingAction for Lay
                 }
             }
             LayerAction::ShiftPalette(shift) => {
+                let response = ui.add(egui::Slider::new(shift, -1.0..=1.0));
+                response.changed()
+            }
+            LayerAction::ChangePaletteLength(factor) => {
+                let response = ui.add(
+                    egui::DragValue::new(factor)
+                        .speed(0.01)
+                        .range(-f32::MAX..=f32::MAX),
+                );
+                response.changed()
+            }
+            LayerAction::Rotate(angle) => {
+                let response = ui.add(egui::DragValue::new(angle).speed(0.1));
+                response.changed()
+            }
+            LayerAction::Brighten(factor) => {
+                let response = ui.add(
+                    egui::DragValue::new(factor)
+                        .speed(0.1)
+                        .range(-f32::MAX..=f32::MAX),
+                );
+                response.changed()
+            }
+            LayerAction::ShiftHue(shift) => {
                 let response = ui.add(egui::Slider::new(shift, 0.0..=1.0));
                 response.changed()
             }
-            _ => {
-                ui.label("Editing not implemented yet");
-                false
+            LayerAction::Saturate(factor) => {
+                let response = ui.add(
+                    egui::DragValue::new(factor)
+                        .speed(0.1)
+                        .range(-f32::MAX..=f32::MAX),
+                );
+                response.changed()
             }
         }
     }
@@ -363,19 +449,10 @@ impl Mapper for OnBeatMapper {
         let beat_intensity =
             self.intensity_from_nearest_beat(timestamp, song_features.beat_timestamps().as_slice());
 
-        let action = self.layer_actions.get(&layer_index);
-        if let Some(found_action) = action {
-            for beat_action in found_action {
-                match beat_action {
-                    LayerAction::AddZoomSpeed(_) => {} // Handled elsewhere
-                    LayerAction::Flash(c) => {
-                        effect.combine_flash_colours(c.with_alpha(beat_intensity))
-                    }
-                    LayerAction::ShiftPalette(shift) => {
-                        effect.add_palette_shift(*shift * beat_intensity)
-                    }
-                    _ => todo!(),
-                }
+        let maybe_action = self.layer_actions.get(&layer_index);
+        if let Some(actions) = maybe_action {
+            for beat_action in actions {
+                effect.apply_action(beat_action, beat_intensity);
             }
         }
 
@@ -406,7 +483,7 @@ impl Mapper for OnBeatMapper {
     }
 }
 
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum ContinuousSampleWindowType {
     /// Use samples to the left of the timestamp
     Left,
@@ -474,9 +551,9 @@ pub struct ContinuousSampleMapper {
     layer_actions: HashMap<usize, Vec<LayerAction>>,
 }
 impl ContinuousSampleMapper {
-    pub fn empty() -> Self {
+    pub fn empty(feature_picker: Box<dyn Fn(&FrameFeatures) -> f32>) -> Self {
         Self {
-            feature_picker: Box::new(|_| 0.0),
+            feature_picker,
             window: ContinuousSampleWindow {
                 duration: 0.1,
                 window_type: ContinuousSampleWindowType::Centered,
@@ -542,13 +619,7 @@ impl Mapper for ContinuousSampleMapper {
 
         if let Some(actions) = self.layer_actions.get(&layer_index) {
             for layer_action in actions {
-                match layer_action {
-                    LayerAction::AddZoomSpeed(_) => {} // Handled elsewhere
-                    LayerAction::ShiftPalette(shift) => {
-                        effect.add_palette_shift(*shift * intensity)
-                    }
-                    _ => todo!(),
-                }
+                effect.apply_action(layer_action, intensity);
             }
         }
 

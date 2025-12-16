@@ -63,7 +63,7 @@ impl AudioMappingWindow {
                 for (i, layer) in layers.iter().enumerate() {
                     let layer_frame = egui::Frame::new()
                         .inner_margin(egui::Margin::symmetric(3, 5))
-                        .stroke(egui::Stroke::new(2.0, egui::Color32::LIGHT_GRAY));
+                        .stroke(egui::Stroke::new(1.0, egui::Color32::LIGHT_GRAY));
 
                     // call the mapper once and reuse the result
                     let n_mappings = layer_actions.get(&i).as_ref().map(|a| a.len()).unwrap_or(0);
@@ -76,16 +76,17 @@ impl AudioMappingWindow {
                         ui.horizontal_centered(|ui| {
                             ui.label(&layer.name);
                             ui.vertical(|ui| {
-                                let action_frame = egui::Frame::new()
-                                    .inner_margin(egui::Margin::symmetric(2, 2))
-                                    .stroke(egui::Stroke::new(1.0, egui::Color32::DARK_GRAY));
+                                let action_frame =
+                                    egui::Frame::new().inner_margin(egui::Margin::symmetric(2, 2));
 
                                 let mut remove_action_index = None;
                                 if let Some(actions) = layer_actions.get_mut(&i) {
+                                    let n_actions = actions.len();
                                     for (i, action) in actions.iter_mut().enumerate() {
                                         action_frame.clone().show(ui, |ui| {
                                             ui.horizontal(|ui| {
-                                                ui.set_min_width(ui.available_width());
+                                                ui.set_min_width(ui.available_width() - 7.0);
+                                                ui.set_max_width(ui.available_width() - 7.0);
                                                 ui.set_min_height(Self::MAPPING_PARAM_HEIGHT);
 
                                                 crate::ui::show_dropdown(
@@ -127,7 +128,7 @@ impl AudioMappingWindow {
                                 let plus_response = {
                                     // allocate an exact area we can make clickable
                                     let size = egui::Vec2::new(
-                                        ui.available_width(),
+                                        ui.available_width() - 7.0,
                                         Self::MAPPING_PARAM_HEIGHT,
                                     );
                                     let (rect, response) =
@@ -204,6 +205,23 @@ impl AudioMappingWindow {
             drop(layer_manager);
 
             ui.columns(4, |columns| {
+                // add line at the right of the first column
+                for col in 0..=2 {
+                    columns[col].painter().line_segment(
+                        [
+                            egui::Pos2::new(
+                                columns[col].max_rect().right(),
+                                columns[col].max_rect().top(),
+                            ),
+                            egui::Pos2::new(
+                                columns[col].max_rect().right(),
+                                columns[col].max_rect().bottom(),
+                            ),
+                        ],
+                        egui::Stroke::new(1.0, egui::Color32::GRAY),
+                    );
+                }
+
                 columns[0]
                     .heading("On Beat")
                     .on_hover_text("Actions to perform on each layer when a beat is detected");

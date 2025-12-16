@@ -164,6 +164,7 @@ impl LayerManagerSettings {
                         self.layer_previews.remove(*selected_layer);
                         *selected_layer = 0;
                         changed_layer_num = true;
+                        selected_layer_changed = true;
                     }
                 });
                 if changed_layer_num {
