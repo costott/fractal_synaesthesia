@@ -17,6 +17,7 @@ pub mod song_manager;
 pub struct VideoManager {
     frame_manager: VideoFrameManager,
     zoom_timeline: ZoomTimeline,
+    rotation_timeline: RotationTimeline,
 
     total_frames: usize,
     framerate: f32,
@@ -24,6 +25,7 @@ pub struct VideoManager {
 
     /// Stored to restore after rendering
     original_layers: Option<Arc<Mutex<LayerManager>>>,
+    start_rotation: f64,
 }
 impl VideoManager {
     /// Creates a new video manager for rendering videos based on the provided song manager
@@ -54,11 +56,13 @@ impl VideoManager {
                 duration,
                 hop_size,
             ),
+            rotation_timeline: RotationTimeline::empty(params.rotation, duration, hop_size),
             frame_manager: VideoFrameManager::new(params.clone()),
             total_frames,
             framerate,
             hop_size,
             original_layers: None,
+            start_rotation: params.rotation,
         }
     }
 
@@ -67,7 +71,7 @@ impl VideoManager {
             (context.song_manager.as_ref().unwrap().song.duration() * self.framerate) as usize;
     }
 
-    /// Rebuild the zoom timeline based on the updated audio mapper and context
+    /// Rebuild the zoom+rotation timeline based on the updated audio mapper and context
     pub fn updated_audio_mapper(&mut self, context: &AudioMapperContext) -> Option<()> {
         self.zoom_timeline = ZoomTimeline::build(
             context.song_manager.as_ref()?,
@@ -75,6 +79,13 @@ impl VideoManager {
             &context.audio_mapper,
             crate::ui::menus::fractal_settings::START_PIXEL_STEP,
             self.zoom_timeline.final_pixel_step,
+            self.hop_size,
+        );
+        self.rotation_timeline = RotationTimeline::build(
+            context.song_manager.as_ref()?,
+            context.layer_manager.clone(),
+            &context.audio_mapper,
+            self.start_rotation,
             self.hop_size,
         );
         Some(())
@@ -104,7 +115,7 @@ impl VideoManager {
             frame.center,
             self.zoom_timeline.sample_at(timestamp),
             frame.max_iterations,
-            0.0,
+            self.rotation_timeline.sample_at(timestamp),
         )));
 
         self.original_layers = Some(visualiser.layer_manager.clone());
@@ -128,6 +139,10 @@ impl VideoManager {
     }
 }
 
+/// Timeline of zoom levels over time
+///
+/// This needs to be built ahead of time to allow for proper interpolation, as the zoom
+/// levels depend on audio features over the entire song.
 struct ZoomTimeline {
     /// (timestamp, pixel_step)
     samples: Vec<(f32, f64)>,
@@ -219,6 +234,87 @@ impl ZoomTimeline {
 
         let alpha = (timestamp - t1) / (t2 - t1);
         v1 + (v2 - v1) * alpha as f64
+    }
+}
+
+/// Timeline of rotation over time
+///
+/// This needs to be built ahead of time as rotation is cumulative,
+/// but we need a deterministic way to get the rotation at any timestamp without
+/// knowing the previous timestamp's rotation.
+struct RotationTimeline {
+    /// (timestamp, rotation in radians)
+    samples: Vec<(f32, f64)>,
+}
+impl RotationTimeline {
+    pub fn empty(start_rotation: f64, duration: f32, hop_size: f32) -> Self {
+        let mut samples = Vec::new();
+
+        let mut t = 0.0;
+        while t < duration {
+            samples.push((t, start_rotation));
+            t += hop_size;
+        }
+
+        Self { samples }
+    }
+
+    pub fn build(
+        song_manager: &SongManager,
+        layer_manager: Arc<Mutex<LayerManager>>,
+        audio_mapper: &AudioMapper,
+        start_rotation: f64,
+        hop_size: f32,
+    ) -> Self {
+        let samples = (song_manager.song.duration() / hop_size) as usize;
+
+        // build cumulative rotation timeline
+        let mut cumulative = Vec::with_capacity(samples);
+        let mut t = 0.0;
+        let mut current_rotation = start_rotation;
+        for _ in 0..samples {
+            let delta_rotation = song_manager.get_rotation_change_at_timestamp(
+                layer_manager.clone(),
+                audio_mapper,
+                t,
+            );
+
+            current_rotation += delta_rotation;
+
+            cumulative.push((t, current_rotation));
+            t += hop_size;
+        }
+
+        Self {
+            samples: cumulative,
+        }
+    }
+
+    pub fn sample_at(&self, timestamp: f32) -> f64 {
+        if timestamp <= self.samples[0].0 {
+            return self.samples[0].1;
+        }
+        if timestamp >= self.samples[self.samples.len() - 1].0 {
+            return self.samples[self.samples.len() - 1].1;
+        }
+
+        let idx = match self
+            .samples
+            .binary_search_by(|(time, _)| time.partial_cmp(&timestamp).unwrap())
+        {
+            Ok(i) => return self.samples[i].1, // exact hit
+            Err(i) => i,
+        };
+
+        let (t1, v1) = self.samples[idx - 1];
+        let (t2, v2) = self.samples[idx];
+
+        let alpha = (timestamp - t1) / (t2 - t1);
+        // Interpolate angles along the shortest path to avoid sudden direction flips
+        let mut delta = v2 - v1;
+        delta = (delta + std::f64::consts::PI).rem_euclid(2.0 * std::f64::consts::PI)
+            - std::f64::consts::PI;
+        v1 + delta * alpha as f64
     }
 }
 

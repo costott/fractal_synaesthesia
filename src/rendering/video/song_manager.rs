@@ -64,4 +64,21 @@ impl SongManager {
 
         multiplier
     }
+
+    pub fn get_rotation_change_at_timestamp(
+        &self,
+        layer_manager: Arc<Mutex<LayerManager>>,
+        audio_mapper: &AudioMapper,
+        timestamp: f32,
+    ) -> f64 {
+        let layer_manager = layer_manager.lock().unwrap();
+        let mut rotation_change = 0.0;
+
+        for (i, _) in layer_manager.layers.iter().enumerate() {
+            rotation_change +=
+                audio_mapper.get_rotation_increase_at_timestamp(i, &self.song_features, timestamp);
+        }
+
+        rotation_change
+    }
 }

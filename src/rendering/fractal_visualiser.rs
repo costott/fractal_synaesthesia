@@ -19,8 +19,8 @@ struct DynamicQualityManager {
     start_of_render: Instant,
 }
 impl DynamicQualityManager {
-    const TARGET_INITIAL: f64 = 0.2; // desired time for an initial render (seconds)
-    const TARGET_INCREMENTAL: f64 = 0.1; // desired time for each incremental render (seconds)
+    const TARGET_INITIAL: f64 = 0.1; // desired time for an initial render (seconds)
+    const TARGET_INCREMENTAL: f64 = 1.0; // desired time for each incremental render (seconds)
     const MIN_QUALITY: usize = 1;
     const MAX_QUALITY: usize = 256;
 
@@ -63,8 +63,8 @@ impl DynamicQualityManager {
 
     pub fn while_initial_render(&self, progress: f32, visualiser_quality: &mut usize) -> bool {
         let elapsed = self.start_of_render.elapsed().as_secs_f64();
-        if elapsed > Self::TARGET_INITIAL * 1.5 && progress < 0.7 {
-            // If we've been rendering for more than double the target time, increase quality to speed up
+        if elapsed > Self::TARGET_INITIAL * 1.5 && progress < 0.9 {
+            // If we've been rendering for more than 1.5x the target time, increase quality to speed up
             // increase quality based on how far we are through the render
             let mut q = *visualiser_quality;
             q += ((1.0 - progress) * 10.0).ceil() as usize;

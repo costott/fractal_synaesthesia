@@ -48,7 +48,7 @@ impl AudioMappingWindow {
 
     /// Renders a feature mapper section for the given heading and layers
     ///
-    /// Returns true if any changes were made to the zoom timeline
+    /// Returns true if any changes were made to a timeline
     fn feature_mapper(
         ui: &mut egui::Ui,
         heading: &str,
@@ -81,7 +81,6 @@ impl AudioMappingWindow {
 
                                 let mut remove_action_index = None;
                                 if let Some(actions) = layer_actions.get_mut(&i) {
-                                    let n_actions = actions.len();
                                     for (i, action) in actions.iter_mut().enumerate() {
                                         action_frame.clone().show(ui, |ui| {
                                             ui.horizontal(|ui| {
@@ -99,7 +98,9 @@ impl AudioMappingWindow {
                                                 );
 
                                                 let value_changed = action.edit_inner_value(ui);
-                                                if value_changed && action.changes_zoom_timeline() {
+                                                if value_changed
+                                                    && action.timeline_needs_recompute()
+                                                {
                                                     changed = true;
                                                 }
 
@@ -119,7 +120,7 @@ impl AudioMappingWindow {
                                 if let Some(index) = remove_action_index {
                                     if let Some(actions) = layer_actions.get_mut(&i) {
                                         let removed_action = actions.remove(index);
-                                        if removed_action.changes_zoom_timeline() {
+                                        if removed_action.timeline_needs_recompute() {
                                             changed = true;
                                         }
                                     }
@@ -183,7 +184,7 @@ impl AudioMappingWindow {
 
     /// Updates the audio mapping window UI
     ///
-    /// Returns true if any changes were made to the zoom timeline
+    /// Returns true if any changes were made to a timeline
     pub fn update(
         &mut self,
         egui_ctx: &egui::Context,
