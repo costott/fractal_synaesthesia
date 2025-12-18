@@ -30,6 +30,10 @@ impl SongManager {
         })
     }
 
+    pub fn total_frames_at_fps(&self, fps: usize) -> usize {
+        (self.song.duration() * fps as f32).ceil() as usize
+    }
+
     pub fn get_layers_at_timestamp(
         &self,
         layer_manger: Arc<Mutex<LayerManager>>,

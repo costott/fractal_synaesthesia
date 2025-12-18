@@ -18,6 +18,8 @@ pub struct SongSettings {
     song_type: SongTypes,
     // silence_threshold: f32,
     // tolerance: f32,
+    /// Whether the song is currently being analysed, used for a spinner
+    analysing: bool,
     song_manager_sender: mpsc::Sender<SongManager>,
     song_manager_reciever: mpsc::Receiver<SongManager>,
 }
@@ -33,6 +35,7 @@ impl SongSettings {
             song_preview_playback: None,
             // TODO: change song type
             song_type: SongTypes::Pop,
+            analysing: false,
             song_manager_sender: tx,
             song_manager_reciever: rx,
         }
@@ -46,6 +49,8 @@ impl SongSettings {
         egui_ctx: &egui::Context,
         ctx: &mut super::AudioMapperContext,
     ) -> bool {
+        let mut ret = false;
+
         // recieve sent song manager
         if let Ok(song_manager) = self.song_manager_reciever.try_recv() {
             self.song_preview_playback
@@ -53,7 +58,8 @@ impl SongSettings {
                 .unwrap()
                 .set_waveform(&song_manager.song_features);
             ctx.song_manager = Some(song_manager);
-            return true;
+            self.analysing = false;
+            ret = true;
         }
 
         self.params.sized_area("song_settings", egui_ctx, |ui| {
@@ -70,6 +76,7 @@ impl SongSettings {
                     if ui.button("Import Song").clicked() {
                         let new_file = rfd::FileDialog::new()
                             .add_filter("Audio", &["wav"])
+                            .set_directory(dirs::audio_dir().unwrap_or_else(|| ".".into()))
                             .pick_file();
 
                         // Only accept new file if one was actually picked
@@ -84,6 +91,10 @@ impl SongSettings {
                             .as_ref()
                             .map_or("None", |p| p.to_str().unwrap_or("..."))
                     ));
+
+                    if self.analysing {
+                        ui.spinner();
+                    }
 
                     // New file selected
                     if self.picked_file != self.old_picked_file {
@@ -105,6 +116,7 @@ impl SongSettings {
                             );
                             let tx = self.song_manager_sender.clone();
                             let song_preview = self.song_preview.clone().unwrap();
+                            self.analysing = true;
                             std::thread::spawn(move || {
                                 tx.send(
                                     SongManager::new(
@@ -129,6 +141,6 @@ impl SongSettings {
             });
         });
 
-        false
+        ret
     }
 }

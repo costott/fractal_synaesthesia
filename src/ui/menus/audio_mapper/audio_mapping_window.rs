@@ -60,13 +60,19 @@ impl AudioMappingWindow {
         egui::ScrollArea::vertical()
             .id_salt(format!("audio_mapper_scroll_{}", heading))
             .show(ui, |ui| {
-                for (i, layer) in layers.iter().enumerate() {
+                for (l_i, layer) in layers.iter().enumerate() {
                     let layer_frame = egui::Frame::new()
                         .inner_margin(egui::Margin::symmetric(3, 5))
-                        .stroke(egui::Stroke::new(1.0, egui::Color32::LIGHT_GRAY));
+                        .stroke(egui::Stroke::new(1.0, egui::Color32::GRAY))
+                        // .fill(super::BACKGROUND_SECONDARY_COLOUR)
+                        .corner_radius(5.0);
 
                     // call the mapper once and reuse the result
-                    let n_mappings = layer_actions.get(&i).as_ref().map(|a| a.len()).unwrap_or(0);
+                    let n_mappings = layer_actions
+                        .get(&l_i)
+                        .as_ref()
+                        .map(|a| a.len())
+                        .unwrap_or(0);
                     let height = (n_mappings + 1) as f32 * Self::MAPPING_PARAM_HEIGHT;
 
                     layer_frame.show(ui, |ui| {
@@ -80,7 +86,7 @@ impl AudioMappingWindow {
                                     egui::Frame::new().inner_margin(egui::Margin::symmetric(2, 2));
 
                                 let mut remove_action_index = None;
-                                if let Some(actions) = layer_actions.get_mut(&i) {
+                                if let Some(actions) = layer_actions.get_mut(&l_i) {
                                     for (i, action) in actions.iter_mut().enumerate() {
                                         action_frame.clone().show(ui, |ui| {
                                             ui.horizontal(|ui| {
@@ -92,7 +98,7 @@ impl AudioMappingWindow {
                                                     ui,
                                                     action,
                                                     format!(
-                                                        "{}_action_dropdown_{i}",
+                                                        "{}_action_dropdown_layer{l_i}_action{i}",
                                                         heading.to_lowercase()
                                                     ),
                                                 );
@@ -118,7 +124,7 @@ impl AudioMappingWindow {
                                 }
 
                                 if let Some(index) = remove_action_index {
-                                    if let Some(actions) = layer_actions.get_mut(&i) {
+                                    if let Some(actions) = layer_actions.get_mut(&l_i) {
                                         let removed_action = actions.remove(index);
                                         if removed_action.timeline_needs_recompute() {
                                             changed = true;
@@ -166,11 +172,11 @@ impl AudioMappingWindow {
                                 };
 
                                 if plus_response.clicked() {
-                                    if let Some(actions) = layer_actions.get_mut(&i) {
+                                    if let Some(actions) = layer_actions.get_mut(&l_i) {
                                         actions.push(LayerAction::default());
                                         changed = true;
                                     } else {
-                                        layer_actions.insert(i, vec![LayerAction::default()]);
+                                        layer_actions.insert(l_i, vec![LayerAction::default()]);
                                     }
                                 }
                             });

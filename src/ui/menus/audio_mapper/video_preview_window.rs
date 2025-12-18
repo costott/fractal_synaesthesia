@@ -22,6 +22,8 @@ use crate::{
 pub struct VideoPreviewWindow {
     params: WindowParams,
 
+    fixed_preview_height: u16,
+
     preview_visualiser: FractalVisualiser,
     song_preview_playback: Option<AudioPlayer>,
 
@@ -32,12 +34,13 @@ impl VideoPreviewWindow {
     pub fn new(
         params: WindowParams,
         ctx: &super::AudioMapperContext,
-        canvas_dims: CanvasDimensions,
+        unscaled_canvas_dims: CanvasDimensions,
+        fixed_preview_height: u16,
         initial_fractal_params: &FractalParams,
     ) -> Self {
         let mut preview_visualiser = FractalVisualiser::new(
             initial_fractal_params,
-            canvas_dims,
+            unscaled_canvas_dims.new_from_this_aspect_with_height(fixed_preview_height),
             Arc::clone(&ctx.layer_manager),
             1,
             true,
@@ -49,6 +52,7 @@ impl VideoPreviewWindow {
 
         Self {
             params,
+            fixed_preview_height,
             preview_visualiser,
             song_preview_playback: None,
             rendered_timestamp: None,
@@ -72,7 +76,9 @@ impl VideoPreviewWindow {
     }
 
     pub fn change_dimensions(&mut self, canvas_dims: CanvasDimensions) {
-        self.preview_visualiser.change_dimensions(canvas_dims);
+        self.preview_visualiser.change_dimensions(
+            canvas_dims.new_from_this_aspect_with_height(self.fixed_preview_height),
+        );
     }
 
     pub fn draw(&self) {
@@ -83,12 +89,7 @@ impl VideoPreviewWindow {
         );
     }
 
-    pub fn update(
-        &mut self,
-        _egui_ctx: &egui::Context,
-        ctx: &mut super::AudioMapperContext,
-        video_manager: &mut VideoManager,
-    ) {
+    pub fn update(&mut self, _egui_ctx: &egui::Context, ctx: &mut super::AudioMapperContext) {
         if let Some(audio_player) = self.song_preview_playback.as_ref() {
             let timestamp = audio_player.get_timestamp();
 
@@ -96,8 +97,9 @@ impl VideoPreviewWindow {
             let mut started_timestamp = false;
             if let Some(rendered_timestamp) = self.rendered_timestamp {
                 if (rendered_timestamp - timestamp).abs() < 0.1 {
-                    if let Some(_) =
-                        video_manager.try_end_render_frame(&mut self.preview_visualiser)
+                    if let Some(_) = ctx
+                        .video_manager
+                        .try_end_render_frame(&mut self.preview_visualiser)
                     {
                         self.are_rendering = false;
                     }
@@ -106,7 +108,8 @@ impl VideoPreviewWindow {
             }
 
             if !started_timestamp && self.are_rendering {
-                video_manager.force_end_render_frame(&mut self.preview_visualiser);
+                ctx.video_manager
+                    .force_end_render_frame(&mut self.preview_visualiser);
                 self.are_rendering = false;
             }
 
@@ -115,7 +118,7 @@ impl VideoPreviewWindow {
 
                 let video_percent =
                     timestamp as f32 / ctx.song_manager.as_ref().unwrap().song.duration();
-                video_manager.start_render_frame(
+                ctx.video_manager.start_render_frame(
                     &mut self.preview_visualiser,
                     &ctx.audio_mapper,
                     ctx.song_manager.as_ref().unwrap(),

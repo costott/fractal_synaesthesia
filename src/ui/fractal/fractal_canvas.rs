@@ -19,13 +19,13 @@ impl CanvasDimensions {
     pub fn new_from_aspect_with_width(aspect_ratio: f32, width: u16) -> Self {
         Self {
             width,
-            height: (width as f32 / aspect_ratio) as u16,
+            height: (width as f32 / aspect_ratio).ceil() as u16,
         }
     }
 
     pub fn new_from_aspect_with_height(aspect_ratio: f32, height: u16) -> Self {
         Self {
-            width: (height as f32 * aspect_ratio) as u16,
+            width: (height as f32 * aspect_ratio).ceil() as u16,
             height,
         }
     }
@@ -86,6 +86,7 @@ impl FractalCanvas {
     }
 
     pub fn change_dimensions(&mut self, dimensions: CanvasDimensions) {
+        self.dims = dimensions;
         self.image = Arc::new(Mutex::new(Image::gen_image_color(
             dimensions.width,
             dimensions.height,
@@ -101,8 +102,7 @@ impl FractalCanvas {
         reference_orbit: Arc<ReferenceOrbit>,
         quality: usize,
     ) {
-        self.renderer.cancel_current_render();
-        self.progress = Arc::new(AtomicUsize::new(0));
+        self.cancel_current_render();
         self.last_rendered_quality = quality;
 
         let rx = self.renderer.spawn_render_tasks(
@@ -122,6 +122,11 @@ impl FractalCanvas {
                 progress_clone.fetch_add(1, Ordering::Relaxed);
             }
         });
+    }
+
+    pub fn cancel_current_render(&mut self) {
+        self.renderer.cancel_current_render();
+        self.progress = Arc::new(AtomicUsize::new(0));
     }
 
     pub fn get_progress(&self) -> f32 {
