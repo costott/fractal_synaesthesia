@@ -19,7 +19,7 @@ pub struct VideoManager {
     zoom_timeline: ZoomTimeline,
     rotation_timeline: RotationTimeline,
 
-    total_frames: usize,
+    pub total_frames: usize,
     framerate: f32,
     hop_size: f32,
 
@@ -36,17 +36,7 @@ impl VideoManager {
     /// - `params`: Fractal parameters of end frame
     /// - `framerate`: Framerate of the video to be rendered
     /// - `hop_size`: Hop size used for the granularity of zoom timeline sampling
-    pub fn new(
-        context: &AudioMapperContext,
-        params: &FractalParams,
-        framerate: f32,
-        hop_size: f32,
-    ) -> Self {
-        let duration = context
-            .song_manager
-            .as_ref()
-            .map(|sm| sm.song.duration())
-            .unwrap_or(60.0);
+    pub fn new(params: &FractalParams, duration: f32, framerate: f32, hop_size: f32) -> Self {
         let total_frames = (duration * framerate) as usize;
 
         Self {
@@ -66,25 +56,45 @@ impl VideoManager {
         }
     }
 
-    pub fn updated_context(&mut self, context: &AudioMapperContext) {
-        self.total_frames =
-            (context.song_manager.as_ref().unwrap().song.duration() * self.framerate) as usize;
+    pub fn updated_duration(&mut self, duration: f32) {
+        self.total_frames = (duration * self.framerate) as usize;
     }
 
-    /// Rebuild the zoom+rotation timeline based on the updated audio mapper and context
-    pub fn updated_audio_mapper(&mut self, context: &AudioMapperContext) -> Option<()> {
+    pub fn update_fps(
+        &mut self,
+        fps: f32,
+        song_manager: Option<&SongManager>,
+        layer_manager: Arc<Mutex<LayerManager>>,
+        audio_mapper: &AudioMapper,
+    ) -> Option<()> {
+        self.framerate = fps;
+        self.total_frames =
+            (self.zoom_timeline.samples.last().unwrap().0 * self.framerate) as usize;
+
+        self.updated_audio_mapper(song_manager, layer_manager, audio_mapper)?;
+        Some(())
+    }
+
+    /// Rebuild the zoom+rotation timeline based on the updated audio mapper + song manager
+    pub fn updated_audio_mapper(
+        &mut self,
+        song_manager: Option<&SongManager>,
+        layer_manager: Arc<Mutex<LayerManager>>,
+        audio_mapper: &AudioMapper,
+    ) -> Option<()> {
+        let song_manager = song_manager?;
         self.zoom_timeline = ZoomTimeline::build(
-            context.song_manager.as_ref()?,
-            context.layer_manager.clone(),
-            &context.audio_mapper,
+            song_manager,
+            layer_manager.clone(),
+            audio_mapper,
             crate::ui::menus::fractal_settings::START_PIXEL_STEP,
             self.zoom_timeline.final_pixel_step,
             self.hop_size,
         );
         self.rotation_timeline = RotationTimeline::build(
-            context.song_manager.as_ref()?,
-            context.layer_manager.clone(),
-            &context.audio_mapper,
+            song_manager,
+            layer_manager.clone(),
+            audio_mapper,
             self.start_rotation,
             self.hop_size,
         );

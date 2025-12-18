@@ -118,7 +118,9 @@ impl FractalVisualiser {
     }
 
     pub fn change_dimensions(&mut self, canvas_dims: CanvasDimensions) {
+        self.canvas.cancel_current_render();
         self.canvas.change_dimensions(canvas_dims);
+        self.start_canvas_render(self.quality);
     }
 
     pub fn update_layers(&mut self) {
