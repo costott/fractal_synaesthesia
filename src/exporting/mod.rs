@@ -1,20 +1,39 @@
-pub mod video_exporter_ffmpeg;
-pub use video_exporter_ffmpeg::VideoExporterFFmpeg;
+pub mod video_exporter;
+pub use video_exporter::VideoExporter;
+mod audio_muxer;
+mod audio_muxer_ffmpeg;
+mod extract_ffmpeg;
+mod video_exporter_ffmpeg;
 
 use macroquad::prelude::*;
-use std::{sync::Arc, thread, time::Duration};
+use std::{
+    sync::{Arc, Mutex},
+    thread,
+    time::Duration,
+};
 
 use crate::rendering::fractal_visualiser::FractalVisualiser;
 
+pub enum ExporterState {
+    RenderingFrames,
+    EncodingVideo,
+    MuxingAudio,
+    Finished,
+}
+
 /// Simple Exporter that orchestrates frame rendering and writes frames via FFmpeg exporter
 pub struct Exporter {
+    pub state: ExporterState,
+
     current_frame: usize,
     rendering_frame: bool,
 
     visualiser: FractalVisualiser,
 
     pub finished: bool,
-    ffmpeg_exporter: VideoExporterFFmpeg,
+    // ffmpeg_exporter: VideoExporter,
+    ffmpeg_exporter: video_exporter_ffmpeg::FFmpegCmdExporter,
+    video_only_path: std::path::PathBuf,
 }
 impl Exporter {
     pub fn new(
@@ -22,25 +41,42 @@ impl Exporter {
         ctx: &crate::ui::menus::audio_mapper::AudioMapperContext,
         end_params: &crate::rendering::algorithms::render_algorithms::FractalParams,
     ) -> Result<Self, Box<dyn std::error::Error>> {
+        // change e.g. "output.mp4" to "output_video_only.mp4" for ffmpeg exporter
+        let mut video_only_path = ctx
+            .destination_file_path
+            .as_ref()
+            .expect("no destination file path set")
+            .clone();
+        let stem = video_only_path
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .ok_or("invalid destination file path")?;
+        let parent = video_only_path
+            .parent()
+            .ok_or("invalid destination file path")?;
+        video_only_path = parent.join(format!("{}_video_only.mp4", stem));
+
+        let owned_layer_manager = ctx.layer_manager.lock().unwrap().clone();
+
         Ok(Self {
+            state: ExporterState::RenderingFrames,
             current_frame: start_frame,
             rendering_frame: false,
             visualiser: FractalVisualiser::new(
                 end_params,
                 ctx.video_dimensions,
-                Arc::clone(&ctx.layer_manager),
+                Arc::new(Mutex::new(owned_layer_manager)),
                 1,
                 false,
             ),
             finished: false,
-            ffmpeg_exporter: VideoExporterFFmpeg::new(
-                ctx.destination_file_path
-                    .as_ref()
-                    .expect("no destination file path set"),
+            ffmpeg_exporter: video_exporter_ffmpeg::FFmpegCmdExporter::new(
                 ctx.video_dimensions.width as u32,
                 ctx.video_dimensions.height as u32,
                 ctx.fps as u32,
+                &video_only_path,
             )?,
+            video_only_path,
         })
     }
 
@@ -130,7 +166,8 @@ impl Exporter {
         }
 
         ctx.video_manager
-            .force_end_render_frame(&mut self.visualiser);
+            .force_end_render_frame(&mut self.visualiser)
+            .expect("something went wrong getting ready for next frame");
         self.current_frame += 1;
 
         Ok(())
@@ -156,6 +193,8 @@ impl Exporter {
         &mut self,
         ctx: &crate::ui::menus::audio_mapper::AudioMapperContext,
     ) -> Result<(), Box<dyn std::error::Error>> {
+        self.state = ExporterState::EncodingVideo;
+
         if ctx.intermediate_pngs {
             // Gather all intermediate pngs and push to ffmpeg exporter
             let intermidate_dir = ctx
@@ -180,13 +219,23 @@ impl Exporter {
                 self.ffmpeg_exporter.push_frame(&rgb_data)?;
             }
 
-            self.ffmpeg_exporter.finish()?;
-
             // Clean up intermediate pngs
             std::fs::remove_dir_all(&intermidate_dir)?;
         }
 
-        // TODO: add the audio track to the mp4
+        self.ffmpeg_exporter.finish()?;
+
+        self.state = ExporterState::MuxingAudio;
+
+        audio_muxer_ffmpeg::mux_audio_video(
+            &self.video_only_path,
+            &ctx.song_path.as_ref().unwrap().into(),
+            &ctx.destination_file_path.as_ref().unwrap().clone(),
+        )?;
+
+        self.state = ExporterState::Finished;
+
+        std::fs::remove_file(&self.video_only_path)?;
 
         self.finished = true;
         Ok(())

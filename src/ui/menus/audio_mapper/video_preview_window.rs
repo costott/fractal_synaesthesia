@@ -90,6 +90,10 @@ impl VideoPreviewWindow {
     }
 
     pub fn update(&mut self, _egui_ctx: &egui::Context, ctx: &mut super::AudioMapperContext) {
+        if ctx.exporting {
+            return;
+        }
+
         if let Some(audio_player) = self.song_preview_playback.as_ref() {
             let timestamp = audio_player.get_timestamp();
 
