@@ -29,7 +29,20 @@ impl AudioMapperWindow for ExportingModal {
                 ui.separator();
                 ui.label("Your video is currently being exported. Please wait...");
 
-                self.progress_bar.show(ui);
+                match self.exporter.state {
+                    crate::exporting::ExporterState::RenderingFrames => {
+                        self.progress_bar.show(ui);
+                    }
+                    crate::exporting::ExporterState::EncodingVideo => {
+                        ui.label("Encoding video...");
+                    }
+                    crate::exporting::ExporterState::MuxingAudio => {
+                        ui.label("Muxing audio...");
+                    }
+                    crate::exporting::ExporterState::Finished => {
+                        ui.label("Export finished!");
+                    }
+                }
             });
         });
     }
