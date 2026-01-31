@@ -17,6 +17,7 @@ impl VideoSettings {
     pub fn update(
         &mut self,
         egui_ctx: &egui::Context,
+        project: &mut crate::project::Project,
         ctx: &mut super::AudioMapperContext,
     ) -> bool {
         let mut changed_dims = false;
@@ -94,10 +95,10 @@ impl VideoSettings {
 
                         ui.horizontal(|ui| {
                             ui.label("FPS");
-                            let mut fps_copy = ctx.fps;
+                            let mut fps_copy = project.fps();
                             ui.add(egui::DragValue::new(&mut fps_copy).speed(1).range(1..=240));
-                            if fps_copy != ctx.fps {
-                                ctx.change_fps(fps_copy);
+                            if fps_copy != project.fps() {
+                                ctx.change_fps(project, fps_copy);
                             }
                         });
 
@@ -105,7 +106,7 @@ impl VideoSettings {
 
                         ui.horizontal(|ui| {
                             let total_frames = if let Some(song_manager) = &ctx.song_manager {
-                                &format!("{}", song_manager.total_frames_at_fps(ctx.fps))
+                                &format!("{}", song_manager.total_frames_at_fps(project.fps()))
                             } else {
                                 "N/A"
                             };

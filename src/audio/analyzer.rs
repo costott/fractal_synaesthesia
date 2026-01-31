@@ -1,5 +1,7 @@
 use aubio_rs::{OnsetMode, Pitch, PitchMode, Tempo};
+use ffmpeg_next::Frame;
 use hound::SampleFormat;
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::ui::Dropdown;
@@ -334,6 +336,24 @@ pub struct FrameFeatures {
     pub bpm: f32,
     pub is_beat: bool,
 }
+impl FrameFeatures {
+    pub fn get_feature(&self, feature_type: &FeatureType) -> f32 {
+        match feature_type {
+            FeatureType::Pitch => self.pitch,
+            FeatureType::Volume => self.volume,
+            FeatureType::Tempo => self.bpm,
+            FeatureType::Beat => self.is_beat as u8 as f32,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum FeatureType {
+    Pitch,
+    Volume,
+    Tempo,
+    Beat,
+}
 
 /// A collection of features extracted from an audio track, organized by frame.
 #[derive(Clone)]
@@ -355,6 +375,13 @@ impl SongFeatures {
             .collect()
     }
 
+    pub fn feature_timestamps(&self, feature_type: &FeatureType) -> Vec<(f32, f32)> {
+        self.0
+            .iter()
+            .map(|ff| (ff.timestamp, ff.get_feature(feature_type)))
+            .collect()
+    }
+
     pub fn attribute_timestamps<F>(&self, attribute_fn: F) -> Vec<(f32, f32)>
     where
         F: Fn(&FrameFeatures) -> f32,
@@ -372,10 +399,24 @@ impl SongFeatures {
         self.0.iter().map(attribute_fn).fold(f32::MAX, f32::min)
     }
 
+    pub fn min_feature(&self, feature_type: &FeatureType) -> f32 {
+        self.0
+            .iter()
+            .map(|ff| ff.get_feature(feature_type))
+            .fold(f32::MAX, f32::min)
+    }
+
     pub fn max_attribue<F>(&self, attribute_fn: F) -> f32
     where
         F: Fn(&FrameFeatures) -> f32,
     {
         self.0.iter().map(attribute_fn).fold(f32::MIN, f32::max)
+    }
+
+    pub fn max_feature(&self, feature_type: &FeatureType) -> f32 {
+        self.0
+            .iter()
+            .map(|ff| ff.get_feature(feature_type))
+            .fold(f32::MIN, f32::max)
     }
 }

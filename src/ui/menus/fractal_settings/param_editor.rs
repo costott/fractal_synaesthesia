@@ -22,6 +22,7 @@ impl FractalSettingsWindow for ParamEditor {
     fn update(
         &mut self,
         egui_ctx: &egui::Context,
+        project: &mut crate::project::Project,
         ctx: &mut crate::ui::menus::fractal_settings::FractalSettingsContext,
     ) {
         let mut needs_render = false;
@@ -36,7 +37,9 @@ impl FractalSettingsWindow for ParamEditor {
                         &mut self.local_param_copy.center_re,
                         ctx.rendering,
                         || {
-                            ctx.fractal_params
+                            project
+                                .fractal_settings
+                                .params
                                 .lock()
                                 .unwrap()
                                 .center
@@ -45,7 +48,9 @@ impl FractalSettingsWindow for ParamEditor {
                                 .real_string()
                         },
                         |v_string| {
-                            ctx.fractal_params
+                            project
+                                .fractal_settings
+                                .params
                                 .lock()
                                 .unwrap()
                                 .center
@@ -61,7 +66,9 @@ impl FractalSettingsWindow for ParamEditor {
                         &mut self.local_param_copy.center_im,
                         ctx.rendering,
                         || {
-                            ctx.fractal_params
+                            project
+                                .fractal_settings
+                                .params
                                 .lock()
                                 .unwrap()
                                 .center
@@ -70,7 +77,9 @@ impl FractalSettingsWindow for ParamEditor {
                                 .im_string()
                         },
                         |v_string| {
-                            ctx.fractal_params
+                            project
+                                .fractal_settings
+                                .params
                                 .lock()
                                 .unwrap()
                                 .center
@@ -87,12 +96,12 @@ impl FractalSettingsWindow for ParamEditor {
                         ctx.rendering,
                         || {
                             (crate::ui::menus::fractal_settings::START_PIXEL_STEP
-                                / ctx.fractal_params.lock().unwrap().pixel_step)
+                                / project.fractal_settings.params.lock().unwrap().pixel_step)
                                 .to_string()
                         },
                         |v_string| {
                             if let Ok(val) = v_string.parse::<f64>() {
-                                ctx.fractal_params.lock().unwrap().pixel_step =
+                                project.fractal_settings.params.lock().unwrap().pixel_step =
                                     crate::ui::menus::fractal_settings::START_PIXEL_STEP / val;
                             }
                         },
@@ -104,7 +113,9 @@ impl FractalSettingsWindow for ParamEditor {
                         &mut self.local_param_copy.max_iterations,
                         ctx.rendering,
                         || {
-                            ctx.fractal_params
+                            project
+                                .fractal_settings
+                                .params
                                 .lock()
                                 .unwrap()
                                 .max_iterations
@@ -112,7 +123,12 @@ impl FractalSettingsWindow for ParamEditor {
                         },
                         |v_string| {
                             if let Ok(val) = v_string.parse::<u32>() {
-                                ctx.fractal_params.lock().unwrap().max_iterations = val;
+                                project
+                                    .fractal_settings
+                                    .params
+                                    .lock()
+                                    .unwrap()
+                                    .max_iterations = val;
                             }
                         },
                     );
@@ -122,10 +138,17 @@ impl FractalSettingsWindow for ParamEditor {
                             .font(egui::FontId::proportional(crate::ui::NORMAL_TEXT_SIZE)),
                     );
 
-                    let mut angle_deg = ctx.fractal_params.lock().unwrap().rotation.to_degrees();
+                    let mut angle_deg = project
+                        .fractal_settings
+                        .params
+                        .lock()
+                        .unwrap()
+                        .rotation
+                        .to_degrees();
                     let response = ui.add(egui::Slider::new(&mut angle_deg, -180.0..=180.0));
                     if response.changed() {
-                        ctx.fractal_params.lock().unwrap().rotation = angle_deg.to_radians();
+                        project.fractal_settings.params.lock().unwrap().rotation =
+                            angle_deg.to_radians();
                         needs_render = true;
                     }
                     ui.end_row();

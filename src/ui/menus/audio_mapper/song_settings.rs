@@ -47,6 +47,7 @@ impl SongSettings {
     pub fn update(
         &mut self,
         egui_ctx: &egui::Context,
+        project: &mut crate::project::Project,
         ctx: &mut super::AudioMapperContext,
     ) -> bool {
         let mut ret = false;
@@ -103,7 +104,7 @@ impl SongSettings {
                         // Load song preview + spawn sender to analyze
                         if let Some(audio_file) = &self.picked_file {
                             let path_str = audio_file.to_string_lossy().to_string();
-                            ctx.song_path = Some(path_str.clone());
+                            project.song_path = Some(path_str.clone());
 
                             let song_type = self.song_type.get_song_type();
                             self.song_preview_playback =

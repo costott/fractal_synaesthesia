@@ -26,7 +26,7 @@ pub struct FractalWindow {
 impl FractalWindow {
     pub fn new(
         window_params: WindowParams,
-        fractal_params: &FractalParams,
+        fractal_params: Arc<Mutex<FractalParams>>,
         layer_manager: Arc<Mutex<LayerManager>>,
     ) -> Self {
         Self {
@@ -62,13 +62,14 @@ impl FractalSettingsWindow for FractalWindow {
     fn update(
         &mut self,
         _egui_ctx: &egui::Context,
+        project: &mut crate::project::Project,
         ctx: &mut crate::ui::menus::fractal_settings::FractalSettingsContext,
     ) {
         self.fractal_visualiser.improve_quality();
 
         let changed = self.zoom_window.update(
             self.params.get_bounding_rect(),
-            Arc::clone(&ctx.fractal_params),
+            project.fractal_settings.params.clone(),
         );
 
         if ctx.update_layers {
@@ -82,7 +83,7 @@ impl FractalSettingsWindow for FractalWindow {
 
         if changed || !self.initialised || ctx.request_render {
             self.fractal_visualiser
-                .update_render(Arc::clone(&ctx.fractal_params));
+                .update_render(project.fractal_settings.params.clone());
             self.initialised = true;
             ctx.rendering = true;
             ctx.request_render = false;

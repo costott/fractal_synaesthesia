@@ -1,5 +1,6 @@
 pub mod audio;
 pub mod exporting;
+pub mod project;
 pub mod rendering;
 pub mod shaders;
 pub mod types;

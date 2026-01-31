@@ -3,6 +3,7 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 
 use macroquad::prelude::*;
+use serde::{Deserialize, Serialize};
 
 use crate::rendering::{
     algorithms::render_algorithms::{FractalParams, ReferenceOrbit},
@@ -10,7 +11,7 @@ use crate::rendering::{
     renderer::Renderer,
 };
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Serialize, Deserialize)]
 pub struct CanvasDimensions {
     pub width: u16,
     pub height: u16,

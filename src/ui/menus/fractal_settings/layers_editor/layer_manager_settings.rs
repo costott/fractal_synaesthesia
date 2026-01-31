@@ -11,6 +11,7 @@ use crate::{
         },
         palette::Palette,
     },
+    types::colour::*,
     ui::{fractal::fractal_canvas::CanvasDimensions, window::WindowParams},
 };
 
@@ -40,10 +41,11 @@ impl LayerManagerSettings {
     pub fn update(
         &mut self,
         egui_ctx: &egui::Context,
+        project: &mut crate::project::Project,
         ctx: &mut crate::ui::menus::fractal_settings::FractalSettingsContext,
         selected_layer: &mut usize,
     ) -> bool {
-        let layer_manager = &mut ctx.layer_manager.lock().unwrap();
+        let layer_manager = &mut project.fractal_settings.layers.lock().unwrap();
 
         // Set length of layer previews
         while self.layer_previews.len() < layer_manager.layers.len() {
@@ -69,7 +71,7 @@ impl LayerManagerSettings {
                         crate::rendering::manager::layer::LayerRange::Both,
                         1.0,
                         Palette::new_even(
-                            vec![macroquad::prelude::WHITE, macroquad::prelude::WHITE],
+                            vec![WHITE, WHITE],
                             crate::rendering::palette::PaletteMappingType::Constant,
                             1.0,
                             0.0,
@@ -80,14 +82,14 @@ impl LayerManagerSettings {
                     vec![layer_clone]
                 };
 
-            let mut fractal_params = ctx.fractal_params.lock().unwrap().clone();
+            let mut fractal_params = project.fractal_settings.params.lock().unwrap().clone();
             let canvas_dims =
                 CanvasDimensions::new_from_aspect_with_width(ctx.fractal_dims.aspect_ratio(), 60);
             let width_proportion = ctx.fractal_dims.width as f64 / canvas_dims.width as f64;
             fractal_params.pixel_step *= width_proportion;
 
             let mut tmp_visualiser = FractalVisualiser::new(
-                &fractal_params,
+                project.fractal_settings.params.clone(),
                 canvas_dims,
                 Arc::new(Mutex::new(LayerManager::new(layers_vector, false))),
                 1,

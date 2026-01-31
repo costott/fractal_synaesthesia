@@ -1,7 +1,5 @@
 use std::sync::{Arc, Mutex};
 
-use macroquad::prelude::*;
-
 use crate::{
     rendering::{
         algorithms::{
@@ -12,7 +10,7 @@ use crate::{
             layer::LayerAlgorithmKind, layer_error::LayerError, layer_manager::LayerManager,
         },
     },
-    types::Complex,
+    types::{Complex, colour::*},
 };
 
 /// Handles rendering logic for the set of layers
@@ -87,7 +85,7 @@ impl LayersRenderer {
         pixel_dc: Complex,
         reference_orbit: &Arc<ReferenceOrbit>,
         max_iterations: u32,
-    ) -> Result<Color, LayerError> {
+    ) -> Result<Colour, LayerError> {
         let mut this_implementations = self.start_implementations.clone();
 
         analyse_pixel(
@@ -105,8 +103,8 @@ impl LayersRenderer {
     fn colour_pixel(
         &self,
         implementations: &Vec<LayerImplementation>,
-    ) -> Result<Color, LayerError> {
-        let mut colour: Option<Color> = None;
+    ) -> Result<Colour, LayerError> {
+        let mut colour: Option<Colour> = None;
         for (i, layer) in self.manager.lock().unwrap().layers.iter().enumerate() {
             let implementation = &implementations[self.implementation_map[i]];
             let output = implementation.get_output();

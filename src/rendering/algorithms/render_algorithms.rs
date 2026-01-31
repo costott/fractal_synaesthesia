@@ -4,10 +4,11 @@ use super::layer_algorithms::{LayerAlgorithm, LayerImplementation};
 use crate::types::*;
 
 use macroquad::prelude::*;
+use serde::{Deserialize, Serialize, ser::SerializeStruct};
 use smallvec::SmallVec;
 
 /// Fractal rendering algorithms
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, serde::Serialize, serde::Deserialize)]
 pub enum Fractal {
     Mandelbrot { power: u32 },
 }
@@ -66,6 +67,44 @@ impl Default for FractalParams {
         )
     }
 }
+impl serde::Serialize for FractalParams {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let mut s = serializer.serialize_struct("FractalParams", 5)?;
+        s.serialize_field("fractal", &*self.fractal)?;
+        s.serialize_field("center", &*self.center.lock().unwrap())?;
+        s.serialize_field("pixel_step", &self.pixel_step)?;
+        s.serialize_field("max_iterations", &self.max_iterations)?;
+        s.serialize_field("rotation", &self.rotation)?;
+        s.end()
+    }
+}
+impl<'de> serde::Deserialize<'de> for FractalParams {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        struct FractalParamsHelper {
+            fractal: Fractal,
+            center: BigComplex,
+            pixel_step: f64,
+            max_iterations: u32,
+            rotation: f64,
+        }
+
+        let helper = FractalParamsHelper::deserialize(deserializer)?;
+        Ok(FractalParams::new(
+            helper.fractal,
+            helper.center,
+            helper.pixel_step,
+            helper.max_iterations,
+            helper.rotation,
+        ))
+    }
+}
 
 pub struct ReferenceOrbit {
     /// the reference orbit, starting from `0 + 0i`
@@ -112,7 +151,8 @@ impl ReferenceOrbit {
     ///
     /// Each part is a f64, encoded as a 2 colours of 4 bytes using little-endian byte order.
     pub fn as_texture(&self) -> Texture2D {
-        let mut image = Image::gen_image_color(4 * self.ref_z.len() as u16, 1, BLANK);
+        let mut image =
+            Image::gen_image_color(4 * self.ref_z.len() as u16, 1, macroquad::prelude::BLANK);
 
         for (i, z) in self.ref_z.iter().enumerate() {
             // split real+im f64s into 8 bytes each for packing
@@ -199,7 +239,11 @@ pub fn analyse_pixel(
 
     // Point stayed bounded
     let final_z = reference_orbit.ref_z[ref_iteration] + dz;
-    for im in implementations.iter_mut() {
+    for (idx, im) in implementations.iter_mut().enumerate() {
+        if bailed_out[idx] {
+            continue;
+        }
+
         im.in_set_double(final_z);
     }
 }

@@ -57,6 +57,7 @@ impl FractalSettingsWindow for Sidebar {
     fn update(
         &mut self,
         egui_ctx: &egui::Context,
+        _project: &mut crate::project::Project,
         ctx: &mut crate::ui::menus::fractal_settings::FractalSettingsContext,
     ) {
         self.params.sized_area("fractalsidebar", egui_ctx, |ui| {
@@ -88,8 +89,8 @@ impl FractalSettingsWindow for Sidebar {
             });
 
             match self.selected_tab {
-                SidebarTab::Parameters => self.param_editor.update(egui_ctx, ctx),
-                SidebarTab::Layers => self.layers_editor.update(egui_ctx, ctx),
+                SidebarTab::Parameters => self.param_editor.update(egui_ctx, _project, ctx),
+                SidebarTab::Layers => self.layers_editor.update(egui_ctx, _project, ctx),
             }
         });
     }

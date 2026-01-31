@@ -1,5 +1,6 @@
 use dashu_float::{FBig, round::mode};
 use macroquad::prelude::*;
+use serde::ser::SerializeStruct;
 use std::{
     ops::{Add, Div, Mul, Neg, Sub},
     str::FromStr,
@@ -79,7 +80,7 @@ pub trait ComplexNumber {
 }
 
 /// Complex number using f64s.
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[repr(C)]
 pub struct Complex {
     pub real: f64,
@@ -620,6 +621,37 @@ impl<'l> Div<f64> for &'l BigComplex {
             real: &self.real / &rhs,
             im: &self.im / rhs,
         }
+    }
+}
+
+impl serde::Serialize for BigComplex {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let mut s = serializer.serialize_struct("BigComplex", 2)?;
+        s.serialize_field("real", &self.real.to_string())?;
+        s.serialize_field("im", &self.im.to_string())?;
+        s.end()
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for BigComplex {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        #[derive(serde::Deserialize)]
+        struct BigComplexHelper {
+            real: String,
+            im: String,
+        }
+
+        let helper = BigComplexHelper::deserialize(deserializer)?;
+        Ok(BigComplex {
+            real: FBig::from_str(&helper.real).map_err(serde::de::Error::custom)?,
+            im: FBig::from_str(&helper.im).map_err(serde::de::Error::custom)?,
+        })
     }
 }
 

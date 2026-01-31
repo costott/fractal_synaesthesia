@@ -2,12 +2,12 @@ use crate::rendering::{
     algorithms::layer_algorithms::*,
     manager::layer_error::LayerError,
     orbit_trap::OrbitTrapType,
-    palette::{Palette, blend_colours, interpolate_colour},
+    palette::{Palette, blend_colours},
 };
-use macroquad::prelude::*;
+use crate::types::colour::*;
 
 /// An individual rendering layer
-#[derive(Clone)]
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
 pub struct Layer {
     pub name: String,
     pub algorithm: LayerAlgorithmKind,
@@ -36,10 +36,10 @@ impl Layer {
     /// Determine the new colour of the pixel after being passed through this layer
     pub fn determine_colour(
         &self,
-        prev_colour: Option<Color>,
+        prev_colour: Option<Colour>,
         implementator_output: f64,
         in_set: bool,
-    ) -> Result<Option<Color>, LayerError> {
+    ) -> Result<Option<Colour>, LayerError> {
         if !self.application_range.layer_applies(in_set) {
             return Ok(prev_colour);
         }
@@ -55,18 +55,14 @@ impl Layer {
 
     fn get_layer_colour(
         &self,
-        prev_colour: Option<Color>,
+        prev_colour: Option<Colour>,
         implementator_output: f64,
-    ) -> Result<Color, LayerError> {
+    ) -> Result<Colour, LayerError> {
         match self.algorithm.get_mapping_kind() {
             LayerMappingKind::Shade => {
                 let previous = prev_colour
                     .ok_or_else(|| LayerError::ShadingError("No base colour to shade".into()))?;
-                Ok(interpolate_colour(
-                    BLACK,
-                    previous,
-                    implementator_output as f32,
-                ))
+                Ok(BLACK.interpolate(&previous, implementator_output as f32))
             }
             LayerMappingKind::Blend => Ok(self
                 .palette
@@ -86,7 +82,7 @@ impl Default for Layer {
 }
 
 /// The algorithm the layer uses.
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum LayerAlgorithmKind {
     Colour,
     OrbitTrap {
@@ -170,14 +166,14 @@ impl crate::ui::Dropdown<LayerAlgorithmKind> for LayerAlgorithmKind {
 }
 
 #[repr(u8)]
-#[derive(PartialEq, Eq)]
+#[derive(PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum LayerMappingKind {
     Blend,
     Shade,
 }
 
 /// Specifies the range of the fractal set a layer is applied to.
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[repr(u8)]
 pub enum LayerRange {
     /// Only points in the fractal set

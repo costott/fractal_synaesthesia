@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use egui::Widget;
 
@@ -33,22 +33,21 @@ pub struct VideoPreviewWindow {
 impl VideoPreviewWindow {
     pub fn new(
         params: WindowParams,
+        project: &crate::project::Project,
         ctx: &super::AudioMapperContext,
         unscaled_canvas_dims: CanvasDimensions,
         fixed_preview_height: u16,
-        initial_fractal_params: &FractalParams,
+        initial_fractal_params: Arc<Mutex<FractalParams>>,
     ) -> Self {
         let mut preview_visualiser = FractalVisualiser::new(
-            initial_fractal_params,
+            initial_fractal_params.clone(),
             unscaled_canvas_dims.new_from_this_aspect_with_height(fixed_preview_height),
-            Arc::clone(&ctx.layer_manager),
+            Arc::clone(&project.fractal_settings.layers),
             1,
             true,
         );
 
-        preview_visualiser.update_render(Arc::new(std::sync::Mutex::new(
-            initial_fractal_params.clone(),
-        )));
+        preview_visualiser.update_render(initial_fractal_params.clone());
 
         Self {
             params,
@@ -69,8 +68,8 @@ impl VideoPreviewWindow {
         Ok(())
     }
 
-    pub fn updated_context(&mut self, ctx: &super::AudioMapperContext) {
-        if let Some(song_path) = &ctx.song_path {
+    pub fn updated_song(&mut self, project: &crate::project::Project) {
+        if let Some(song_path) = &project.song_path {
             let _ = self.load_song(song_path);
         }
     }
@@ -89,7 +88,12 @@ impl VideoPreviewWindow {
         );
     }
 
-    pub fn update(&mut self, _egui_ctx: &egui::Context, ctx: &mut super::AudioMapperContext) {
+    pub fn update(
+        &mut self,
+        _egui_ctx: &egui::Context,
+        project: &crate::project::Project,
+        ctx: &mut super::AudioMapperContext,
+    ) {
         if ctx.exporting {
             return;
         }
@@ -124,7 +128,7 @@ impl VideoPreviewWindow {
                     timestamp as f32 / ctx.song_manager.as_ref().unwrap().song.duration();
                 ctx.video_manager.start_render_frame(
                     &mut self.preview_visualiser,
-                    &ctx.audio_mapper,
+                    &project.audio_mapper,
                     ctx.song_manager.as_ref().unwrap(),
                     video_percent,
                 );

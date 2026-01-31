@@ -71,7 +71,7 @@ impl RenderTask {
                     &self.reference_orbit,
                     max_iterations,
                 ) {
-                    Ok(c) => c,
+                    Ok(c) => c.into(),
                     Err(e) => {
                         // eprintln!("{:?}", e);
                         macroquad::color::RED // fail visibly

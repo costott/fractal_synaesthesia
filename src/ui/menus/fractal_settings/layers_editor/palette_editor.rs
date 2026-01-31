@@ -1,7 +1,4 @@
-use crate::{
-    rendering::palette::{color_to_rbga, rgba_to_color},
-    ui::window::WindowParams,
-};
+use crate::ui::window::WindowParams;
 
 struct PaletteTextures {
     gradient: egui::TextureHandle,
@@ -52,6 +49,7 @@ impl PaletteEditor {
     pub fn update(
         &mut self,
         egui_ctx: &egui::Context,
+        project: &mut crate::project::Project,
         ctx: &mut crate::ui::menus::fractal_settings::FractalSettingsContext,
     ) -> bool {
         let mut changed_layer = false;
@@ -60,7 +58,8 @@ impl PaletteEditor {
         if let Some(editing_palette) = &mut self.editing_palette {
             let mut changed_gradient = false;
 
-            let layer = &mut ctx.layer_manager.lock().unwrap().layers[editing_palette.layer_index];
+            let layer = &mut project.fractal_settings.layers.lock().unwrap().layers
+                [editing_palette.layer_index];
 
             if editing_palette.textures.is_none() {
                 let width = self.params.width as f32 * 0.7;
@@ -116,7 +115,7 @@ impl PaletteEditor {
                         let x = palette_rect.left() + point.percent_pos * palette_rect.width();
                         let top_y = palette_rect.bottom();
 
-                        let c = color_to_rbga(point.colour);
+                        let c: egui::Rgba = point.colour.into();
                         let bg_colour = if editing_palette.selected_point_index == i {
                             egui::Color32::GRAY
                         } else {
@@ -210,14 +209,14 @@ impl PaletteEditor {
 
                         let selected_point = &mut layer.palette.colour_map.get_map()
                             [editing_palette.selected_point_index];
-                        let mut rgba = color_to_rbga(selected_point.colour);
+                        let mut rgba: egui::Rgba = selected_point.colour.into();
                         let response = egui::color_picker::color_edit_button_rgba(
                             ui,
                             &mut rgba,
                             egui::color_picker::Alpha::OnlyBlend,
                         );
                         if response.changed() {
-                            selected_point.colour = rgba_to_color(rgba);
+                            selected_point.colour = rgba.into();
                             changed_gradient = true;
                             changed_layer = true;
                         }

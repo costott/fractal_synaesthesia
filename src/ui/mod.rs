@@ -1,6 +1,10 @@
+use std::sync::{Arc, Mutex};
+
 use macroquad::prelude::*;
+use serde::{Deserialize, Serialize, ser::SerializeStruct};
 
 use crate::{
+    project::Project,
     rendering::{
         algorithms::render_algorithms::FractalParams, manager::layer_manager::LayerManager,
     },
@@ -25,11 +29,14 @@ enum AppMode {
 
 pub struct App {
     mode: AppMode,
+    project: Project,
 }
 impl App {
     pub fn new() -> Self {
+        let project = Project::new();
         Self {
-            mode: AppMode::FractalSettings(FractalSettingsMode::new()),
+            mode: AppMode::FractalSettings(FractalSettingsMode::new(&project)),
+            project,
         }
     }
 
@@ -37,19 +44,18 @@ impl App {
         egui_macroquad::ui(|egui_ctx| {
             match &mut self.mode {
                 AppMode::FractalSettings(fractal_settings) => {
-                    let to_swap = fractal_settings.update(egui_ctx);
+                    let to_swap = fractal_settings.update(&mut self.project, egui_ctx);
 
                     if to_swap {
-                        self.mode = AppMode::AudioMapper(AudioMapperMode::new(
-                            fractal_settings.get_fractal_settings(),
-                        ));
+                        self.mode = AppMode::AudioMapper(AudioMapperMode::new(&self.project));
                     }
                 }
                 AppMode::AudioMapper(audio_mapper) => {
-                    let to_swap = audio_mapper.update(egui_ctx);
+                    let to_swap = audio_mapper.update(&mut self.project, egui_ctx);
 
                     if to_swap {
-                        self.mode = AppMode::FractalSettings(FractalSettingsMode::new());
+                        self.mode =
+                            AppMode::FractalSettings(FractalSettingsMode::new(&self.project));
                     }
                 }
             };
@@ -67,14 +73,51 @@ impl App {
 
 trait AppModeScreen {
     /// Update the screen, and return whether or not the mode should be swapped
-    fn update(&mut self, _egui_ctx: &egui::Context) -> bool;
+    fn update(&mut self, _project: &mut Project, _egui_ctx: &egui::Context) -> bool;
     fn draw(&self);
 }
 
 #[derive(Clone)]
 pub struct FractalSettings {
-    pub params: FractalParams,
-    pub layers: LayerManager,
+    pub params: Arc<Mutex<FractalParams>>,
+    pub layers: Arc<Mutex<LayerManager>>,
+}
+impl Default for FractalSettings {
+    fn default() -> Self {
+        Self {
+            params: Arc::new(Mutex::new(FractalParams::default())),
+            layers: Arc::new(Mutex::new(LayerManager::default())),
+        }
+    }
+}
+impl Serialize for FractalSettings {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let mut s = serializer.serialize_struct("FractalSettings", 2)?;
+        s.serialize_field("params", &*self.params.lock().unwrap())?;
+        s.serialize_field("layers", &*self.layers.lock().unwrap())?;
+        s.end()
+    }
+}
+impl<'de> Deserialize<'de> for FractalSettings {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        struct FractalSettingsHelper {
+            params: FractalParams,
+            layers: LayerManager,
+        }
+
+        let helper = FractalSettingsHelper::deserialize(deserializer)?;
+        Ok(Self {
+            params: Arc::new(Mutex::new(helper.params)),
+            layers: Arc::new(Mutex::new(helper.layers)),
+        })
+    }
 }
 
 pub trait Dropdown<T>: Clone + PartialEq {

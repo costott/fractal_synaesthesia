@@ -38,6 +38,7 @@ pub struct Exporter {
 impl Exporter {
     pub fn new(
         start_frame: usize,
+        project: &crate::project::Project,
         ctx: &crate::ui::menus::audio_mapper::AudioMapperContext,
         end_params: &crate::rendering::algorithms::render_algorithms::FractalParams,
     ) -> Result<Self, Box<dyn std::error::Error>> {
@@ -56,14 +57,14 @@ impl Exporter {
             .ok_or("invalid destination file path")?;
         video_only_path = parent.join(format!("{}_video_only.mp4", stem));
 
-        let owned_layer_manager = ctx.layer_manager.lock().unwrap().clone();
+        let owned_layer_manager = project.fractal_settings.layers.lock().unwrap().clone();
 
         Ok(Self {
             state: ExporterState::RenderingFrames,
             current_frame: start_frame,
             rendering_frame: false,
             visualiser: FractalVisualiser::new(
-                end_params,
+                std::sync::Arc::new(std::sync::Mutex::new(end_params.clone())),
                 ctx.video_dimensions,
                 Arc::new(Mutex::new(owned_layer_manager)),
                 1,
@@ -73,7 +74,7 @@ impl Exporter {
             ffmpeg_exporter: video_exporter_ffmpeg::FFmpegCmdExporter::new(
                 ctx.video_dimensions.width as u32,
                 ctx.video_dimensions.height as u32,
-                ctx.fps as u32,
+                project.fps() as u32,
                 &video_only_path,
             )?,
             video_only_path,
@@ -82,11 +83,12 @@ impl Exporter {
 
     pub fn update(
         &mut self,
+        project: &crate::project::Project,
         ctx: &mut crate::ui::menus::audio_mapper::AudioMapperContext,
     ) -> Result<(), Box<dyn std::error::Error>> {
         if self.current_frame >= ctx.video_manager.total_frames {
             if !self.finished {
-                self.finish(ctx)?;
+                self.finish(project, ctx)?;
             }
             return Ok(());
         }
@@ -101,13 +103,14 @@ impl Exporter {
             }
         }
 
-        self.start_current_frame(ctx)?;
+        self.start_current_frame(project, ctx)?;
 
         Ok(())
     }
 
     fn start_current_frame(
         &mut self,
+        project: &crate::project::Project,
         ctx: &mut crate::ui::menus::audio_mapper::AudioMapperContext,
     ) -> Result<(), Box<dyn std::error::Error>> {
         let song_manager = ctx
@@ -116,7 +119,7 @@ impl Exporter {
             .ok_or("no song loaded in AudioMapperContext")?;
 
         let duration = song_manager.song.duration();
-        let total_frames = (duration * ctx.fps as f32) as usize;
+        let total_frames = (duration * project.fps() as f32) as usize;
 
         if self.current_frame >= total_frames {
             return Ok(());
@@ -126,7 +129,7 @@ impl Exporter {
 
         ctx.video_manager.start_render_frame(
             &mut self.visualiser,
-            &ctx.audio_mapper,
+            &project.audio_mapper,
             song_manager,
             video_percent,
         );
@@ -191,6 +194,7 @@ impl Exporter {
 
     fn finish(
         &mut self,
+        project: &crate::project::Project,
         ctx: &crate::ui::menus::audio_mapper::AudioMapperContext,
     ) -> Result<(), Box<dyn std::error::Error>> {
         self.state = ExporterState::EncodingVideo;
@@ -229,7 +233,7 @@ impl Exporter {
 
         audio_muxer_ffmpeg::mux_audio_video(
             &self.video_only_path,
-            &ctx.song_path.as_ref().unwrap().into(),
+            &project.song_path.as_ref().unwrap().into(),
             &ctx.destination_file_path.as_ref().unwrap().clone(),
         )?;
 
