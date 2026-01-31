@@ -49,12 +49,10 @@ pub struct AudioMapperMode {
     // bottom section: audio mapping
     audio_mapping_window: AudioMappingWindow,
     // -------------------------------------
-    /// Stored for use in restoring settings back into fractal settings mode
-    end_fractal_settings: FractalSettings,
 }
 impl AudioMapperMode {
-    pub fn new(settings: FractalSettings) -> Self {
-        let context = AudioMapperContext::load_from_fractal_settings(&settings);
+    pub fn new(project: &crate::project::Project) -> Self {
+        let context = AudioMapperContext::load_from_project(project);
 
         let video_preview_params = WindowParams {
             width: (screen_width() * 0.4) as u16,
@@ -72,10 +70,11 @@ impl AudioMapperMode {
             }),
             video_preview_window: VideoPreviewWindow::new(
                 video_preview_params.clone(),
+                project,
                 &context,
                 context.video_dimensions,
                 345,
-                &settings.params,
+                project.fractal_settings.params.clone(),
             ),
             export_menu: ExportMenu::new(WindowParams {
                 width: (screen_width() * 0.3) as u16,
@@ -98,12 +97,11 @@ impl AudioMapperMode {
                 y: video_preview_params.y + video_preview_params.height,
             }),
             context,
-            end_fractal_settings: settings,
         }
     }
 }
 impl AppModeScreen for AudioMapperMode {
-    fn update(&mut self, egui_ctx: &egui::Context) -> bool {
+    fn update(&mut self, project: &mut crate::project::Project, egui_ctx: &egui::Context) -> bool {
         egui_ctx.style_mut(|style| {
             style.visuals.override_text_color = Some(egui::Color32::WHITE);
             style.visuals.extreme_bg_color = egui::Color32::DARK_GRAY;
@@ -121,45 +119,52 @@ impl AppModeScreen for AudioMapperMode {
 
         if self.context.exporting {
             if let Some(exporting_modal) = &mut self.exporting_modal {
-                exporting_modal.update(egui_ctx, &mut self.context);
+                exporting_modal.update(egui_ctx, project, &mut self.context);
             } else {
                 self.exporting_modal = Some(ExportingModal::new(
-                    &self.end_fractal_settings.params,
+                    &project.fractal_settings.params.lock().unwrap().clone(),
+                    project,
                     &self.context,
                 ));
             }
         }
 
-        if self.song_settings.update(egui_ctx, &mut self.context) {
+        if self
+            .song_settings
+            .update(egui_ctx, project, &mut self.context)
+        {
             if let Some(sm) = self.context.song_manager.as_ref() {
                 self.context
                     .video_manager
                     .updated_duration(sm.song.duration());
             }
-            self.video_preview_window.updated_context(&self.context);
+            self.video_preview_window.updated_song(project);
             self.context.video_manager.updated_audio_mapper(
                 self.context.song_manager.as_ref(),
-                self.context.layer_manager.clone(),
-                &self.context.audio_mapper,
+                project.fractal_settings.layers.clone(),
+                &project.audio_mapper,
             );
         }
 
-        if self.video_settings.update(egui_ctx, &mut self.context) {
+        if self
+            .video_settings
+            .update(egui_ctx, project, &mut self.context)
+        {
             self.video_preview_window
                 .change_dimensions(self.context.video_dimensions);
         }
 
         self.video_preview_window
-            .update(egui_ctx, &mut self.context);
+            .update(egui_ctx, project, &mut self.context);
 
         if self
             .audio_mapping_window
-            .update(egui_ctx, &mut self.context)
+            .update(egui_ctx, project, &mut self.context)
         {
             self.context.video_manager.updated_audio_mapper(
                 self.context.song_manager.as_ref(),
-                self.context.layer_manager.clone(),
-                &self.context.audio_mapper,
+                project.fractal_settings.layers.clone(),
+                &project.audio_mapper,
             );
         }
 
@@ -181,31 +186,28 @@ impl AppModeScreen for AudioMapperMode {
 }
 
 pub struct AudioMapperContext {
-    pub audio_mapper: AudioMapper,
     pub video_manager: VideoManager,
-    pub layer_manager: Arc<Mutex<LayerManager>>,
     pub video_dimensions: CanvasDimensions,
     pub song_manager: Option<SongManager>,
-    pub song_path: Option<String>,
-    pub fps: usize,
 
     pub exporting: bool,
     pub destination_file_path: Option<PathBuf>,
     pub intermediate_pngs: bool,
 }
 impl AudioMapperContext {
-    pub fn load_from_fractal_settings(settings: &FractalSettings) -> Self {
+    pub fn load_from_project(project: &crate::project::Project) -> Self {
         Self {
-            audio_mapper: AudioMapper::empty(),
-            video_manager: VideoManager::new(&settings.params, 60., 30., 1.),
-            layer_manager: Arc::new(Mutex::new(settings.layers.clone())),
+            video_manager: VideoManager::new(
+                project.fractal_settings.params.clone(),
+                60.,
+                project.fps() as f32,
+                1.,
+            ),
             video_dimensions: CanvasDimensions {
                 width: 1920,
                 height: 1080,
             },
             song_manager: None,
-            song_path: None,
-            fps: 30,
             exporting: false,
             // set default destination to downloads folder
             destination_file_path: dirs::video_dir().map(|mut path| {
@@ -216,17 +218,22 @@ impl AudioMapperContext {
         }
     }
 
-    pub fn change_fps(&mut self, fps: usize) {
-        self.fps = fps;
+    pub fn change_fps(&mut self, project: &mut crate::project::Project, fps: usize) {
+        project.set_fps(fps);
         self.video_manager.update_fps(
             fps as f32,
             self.song_manager.as_ref(),
-            self.layer_manager.clone(),
-            &self.audio_mapper,
+            project.fractal_settings.layers.clone(),
+            &project.audio_mapper,
         );
     }
 }
 
 pub trait AudioMapperWindow {
-    fn update(&mut self, _egui_ctx: &egui::Context, _ctx: &mut AudioMapperContext);
+    fn update(
+        &mut self,
+        _egui_ctx: &egui::Context,
+        _project: &mut crate::project::Project,
+        _ctx: &mut AudioMapperContext,
+    );
 }

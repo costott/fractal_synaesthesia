@@ -194,6 +194,7 @@ impl AudioMappingWindow {
     pub fn update(
         &mut self,
         egui_ctx: &egui::Context,
+        project: &mut crate::project::Project,
         ctx: &mut super::AudioMapperContext,
     ) -> bool {
         let mut changed = false;
@@ -207,7 +208,7 @@ impl AudioMappingWindow {
                 egui::Stroke::new(2.0, egui::Color32::WHITE),
             );
 
-            let layer_manager = ctx.layer_manager.lock().unwrap();
+            let layer_manager = project.fractal_settings.layers.lock().unwrap();
             let layers = layer_manager.layers.clone();
             drop(layer_manager);
 
@@ -237,7 +238,7 @@ impl AudioMappingWindow {
                         "The duration before beats over which the 'on beat' effect will ramp up",
                     );
                     ui.add(
-                        egui::DragValue::new(ctx.audio_mapper.on_beat_attack_duration_mut())
+                        egui::DragValue::new(project.audio_mapper.on_beat_attack_duration_mut())
                             .speed(0.01)
                             .range(0.0..=1.0),
                     );
@@ -247,7 +248,7 @@ impl AudioMappingWindow {
                         "The duration after beats over which the 'on beat' effect will ramp down",
                     );
                     ui.add(
-                        egui::DragValue::new(ctx.audio_mapper.on_beat_decay_duration_mut())
+                        egui::DragValue::new(project.audio_mapper.on_beat_decay_duration_mut())
                             .speed(0.01)
                             .range(0.0..=1.0),
                     );
@@ -256,7 +257,7 @@ impl AudioMappingWindow {
                     &mut columns[0],
                     "On Beat",
                     &layers,
-                    ctx.audio_mapper.on_beat_layer_actions_mut(),
+                    project.audio_mapper.on_beat_layer_actions_mut(),
                 );
 
                 columns[1]
@@ -265,13 +266,13 @@ impl AudioMappingWindow {
                 changed |= Self::feature_window_editor(
                     &mut columns[1],
                     "Tempo",
-                    ctx.audio_mapper.tempo_window_mut(),
+                    project.audio_mapper.tempo_window_mut(),
                 );
                 changed |= Self::feature_mapper(
                     &mut columns[1],
                     "Tempo",
                     &layers,
-                    ctx.audio_mapper.tempo_layer_actions_mut(),
+                    project.audio_mapper.tempo_layer_actions_mut(),
                 );
 
                 columns[2]
@@ -280,13 +281,13 @@ impl AudioMappingWindow {
                 changed |= Self::feature_window_editor(
                     &mut columns[2],
                     "Volume",
-                    ctx.audio_mapper.volume_window_mut(),
+                    project.audio_mapper.volume_window_mut(),
                 );
                 changed |= Self::feature_mapper(
                     &mut columns[2],
                     "Volume",
                     &layers,
-                    ctx.audio_mapper.volume_layer_actions_mut(),
+                    project.audio_mapper.volume_layer_actions_mut(),
                 );
 
                 columns[3]
@@ -295,13 +296,13 @@ impl AudioMappingWindow {
                 changed |= Self::feature_window_editor(
                     &mut columns[3],
                     "Pitch",
-                    ctx.audio_mapper.pitch_window_mut(),
+                    project.audio_mapper.pitch_window_mut(),
                 );
                 changed |= Self::feature_mapper(
                     &mut columns[3],
                     "Pitch",
                     &layers,
-                    ctx.audio_mapper.pitch_layer_actions_mut(),
+                    project.audio_mapper.pitch_layer_actions_mut(),
                 );
             });
         });

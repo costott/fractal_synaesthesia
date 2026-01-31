@@ -42,14 +42,15 @@ impl LayerSettings {
     pub fn update(
         &mut self,
         egui_ctx: &egui::Context,
+        project: &mut crate::project::Project,
         ctx: &mut crate::ui::menus::fractal_settings::FractalSettingsContext,
         selected_layer: usize,
     ) -> bool {
         if self.palette_editor.is_open() {
-            return self.palette_editor.update(egui_ctx, ctx);
+            return self.palette_editor.update(egui_ctx, project, ctx);
         }
 
-        let layer = &mut ctx.layer_manager.lock().unwrap().layers[selected_layer];
+        let layer = &mut project.fractal_settings.layers.lock().unwrap().layers[selected_layer];
         let mut layer_changed = false;
 
         if self.update_locals {
@@ -157,7 +158,12 @@ impl LayerSettings {
                             ctx.rendering,
                             skip_iteration,
                             stripe_density,
-                            ctx.fractal_params.lock().unwrap().max_iterations,
+                            project
+                                .fractal_settings
+                                .params
+                                .lock()
+                                .unwrap()
+                                .max_iterations,
                             &mut self.local_specifics_copy,
                         );
                     }

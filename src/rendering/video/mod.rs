@@ -36,7 +36,13 @@ impl VideoManager {
     /// - `params`: Fractal parameters of end frame
     /// - `framerate`: Framerate of the video to be rendered
     /// - `hop_size`: Hop size used for the granularity of zoom timeline sampling
-    pub fn new(params: &FractalParams, duration: f32, framerate: f32, hop_size: f32) -> Self {
+    pub fn new(
+        params: Arc<Mutex<FractalParams>>,
+        duration: f32,
+        framerate: f32,
+        hop_size: f32,
+    ) -> Self {
+        let params = params.lock().unwrap();
         let total_frames = (duration * framerate) as usize;
 
         Self {
@@ -342,10 +348,6 @@ impl VideoFrameManager {
             ),
             end_frame: VideoFrame::from_params(end_params),
         }
-    }
-
-    pub fn from_fractal_settings(fractal_settings: FractalSettings) -> Self {
-        Self::new(fractal_settings.params)
     }
 
     /// `move_center_percent`: portion of animation where it should move from start -> end center

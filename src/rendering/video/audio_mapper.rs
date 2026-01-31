@@ -1,10 +1,14 @@
 use std::collections::HashMap;
 
+use serde::{Deserialize, Serialize};
+
 use crate::{
-    audio::analyzer::{FrameFeatures, SongFeatures},
-    rendering::{manager::layer::Layer, palette::alpha_blend},
+    audio::analyzer::{FeatureType, FrameFeatures, SongFeatures},
+    rendering::manager::layer::Layer,
+    types::colour::*,
 };
 
+#[derive(Clone, Serialize, Deserialize)]
 pub struct AudioMapper {
     on_beat: OnBeatMapper,
     tempo: ContinuousSampleMapper,
@@ -15,9 +19,9 @@ impl AudioMapper {
     pub fn empty() -> Self {
         Self {
             on_beat: OnBeatMapper::empty(),
-            tempo: ContinuousSampleMapper::empty(Box::new(|f| f.bpm)),
-            volume: ContinuousSampleMapper::empty(Box::new(|f| f.volume)),
-            pitch: ContinuousSampleMapper::empty(Box::new(|f| f.pitch)),
+            tempo: ContinuousSampleMapper::empty(FeatureType::Tempo),
+            volume: ContinuousSampleMapper::empty(FeatureType::Volume),
+            pitch: ContinuousSampleMapper::empty(FeatureType::Pitch),
         }
     }
 
@@ -38,16 +42,16 @@ impl AudioMapper {
                 attack_duration: 0.1,
                 decay_duration: 0.1,
             },
-            tempo: ContinuousSampleMapper::empty(Box::new(|f| f.bpm)),
+            tempo: ContinuousSampleMapper::empty(FeatureType::Tempo),
             volume: ContinuousSampleMapper {
-                feature_picker: Box::new(|features: &FrameFeatures| features.volume),
+                feature_type: FeatureType::Volume,
                 window: ContinuousSampleWindow {
                     duration: 1.0,
                     window_type: ContinuousSampleWindowType::Centered,
                 },
                 layer_actions: volume_layer_actions,
             },
-            pitch: ContinuousSampleMapper::empty(Box::new(|f| f.pitch)),
+            pitch: ContinuousSampleMapper::empty(FeatureType::Pitch),
         }
     }
 
@@ -170,7 +174,7 @@ pub trait Mapper {
 /// Effect to apply to a layer
 pub struct LayerEffect {
     /// Make an entire layer's palette flash this colour
-    flash_colour: macroquad::color::Color,
+    flash_colour: Colour,
     /// Shift a layer's pallete's offset by a certain amoung
     palette_shift: f32,
     palette_length_multiplier: f32,
@@ -197,7 +201,7 @@ impl LayerEffect {
     pub fn none() -> Self {
         Self {
             palette_shift: 0.0,
-            flash_colour: macroquad::prelude::BLANK,
+            flash_colour: BLANK,
             palette_length_multiplier: 0.0,
             brighten_factor: 0.0,
             hue_shift: 0.0,
@@ -214,8 +218,8 @@ impl LayerEffect {
         self.add_saturate_factor(other.saturate_factor);
     }
 
-    pub fn combine_flash_colours(&mut self, flash_colour: macroquad::color::Color) {
-        self.flash_colour = alpha_blend(self.flash_colour, flash_colour);
+    pub fn combine_flash_colours(&mut self, flash_colour: Colour) {
+        self.flash_colour = self.flash_colour.alpha_blend(&flash_colour);
     }
 
     pub fn add_palette_shift(&mut self, palette_shift: f32) {
@@ -265,10 +269,10 @@ impl LayerEffect {
 }
 
 /// Values are given as maximum values at the peak of the intensity (i.e. intensity = 1.0)
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, PartialEq, Debug, Serialize, Deserialize)]
 pub enum LayerAction {
     AddZoomSpeed(f64),
-    Flash(macroquad::color::Color),
+    Flash(Colour),
     ShiftPalette(f32),
     ChangePaletteLength(f32),
     Rotate(f64),
@@ -294,7 +298,7 @@ impl crate::ui::Dropdown<LayerAction> for LayerAction {
     fn get_variants() -> Vec<LayerAction> {
         vec![
             LayerAction::AddZoomSpeed(0.0),
-            LayerAction::Flash(macroquad::prelude::BLANK),
+            LayerAction::Flash(BLANK),
             LayerAction::ShiftPalette(0.0),
             LayerAction::ChangePaletteLength(0.0),
             LayerAction::Rotate(0.0),
@@ -357,7 +361,8 @@ impl crate::ui::menus::audio_mapper::audio_mapping_window::MappingAction for Lay
                 response.changed()
             }
             LayerAction::Flash(c) => {
-                let mut rgba = crate::rendering::palette::color_to_rbga(*c);
+                // let mut rgba = crate::rendering::palette::color_to_rbga((*c).into());
+                let mut rgba = (*c).into();
                 if egui::color_picker::color_edit_button_rgba(
                     ui,
                     &mut rgba,
@@ -365,7 +370,8 @@ impl crate::ui::menus::audio_mapper::audio_mapping_window::MappingAction for Lay
                 )
                 .changed()
                 {
-                    *c = crate::rendering::palette::rgba_to_color(rgba);
+                    // *c = crate::rendering::palette::rgba_to_color(rgba).into();
+                    *c = rgba.into();
                     true
                 } else {
                     false
@@ -411,6 +417,7 @@ impl crate::ui::menus::audio_mapper::audio_mapping_window::MappingAction for Lay
     }
 }
 
+#[derive(Clone, Serialize, Deserialize)]
 struct OnBeatMapper {
     /// maps layer index to beat action
     layer_actions: HashMap<usize, Vec<LayerAction>>,
@@ -529,7 +536,7 @@ impl Mapper for OnBeatMapper {
     }
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub enum ContinuousSampleWindowType {
     /// Use samples to the left of the timestamp
     Left,
@@ -567,6 +574,7 @@ impl crate::ui::Dropdown<ContinuousSampleWindowType> for ContinuousSampleWindowT
     }
 }
 
+#[derive(Clone, Serialize, Deserialize)]
 pub struct ContinuousSampleWindow {
     pub duration: f32,
     pub window_type: ContinuousSampleWindowType,
@@ -589,17 +597,19 @@ impl ContinuousSampleWindow {
 }
 
 /// Mapper for audio features that get continuously sampled (e.g. tempo, volume, pitch)
+#[derive(Clone, Serialize, Deserialize)]
 pub struct ContinuousSampleMapper {
-    feature_picker: Box<dyn Fn(&FrameFeatures) -> f32>,
+    // feature_picker: Box<dyn Fn(&FrameFeatures) -> f32>,
+    feature_type: FeatureType,
 
     window: ContinuousSampleWindow,
     /// Maps layer index to layer action
     layer_actions: HashMap<usize, Vec<LayerAction>>,
 }
 impl ContinuousSampleMapper {
-    pub fn empty(feature_picker: Box<dyn Fn(&FrameFeatures) -> f32>) -> Self {
+    pub fn empty(feature_type: FeatureType) -> Self {
         Self {
-            feature_picker,
+            feature_type,
             window: ContinuousSampleWindow {
                 duration: 0.1,
                 window_type: ContinuousSampleWindowType::Centered,
@@ -642,17 +652,11 @@ impl ContinuousSampleMapper {
     }
 
     fn intensity_from_song_features(&self, timestamp: f32, song_features: &SongFeatures) -> f32 {
-        let feature_timestamps = song_features.attribute_timestamps(self.feature_picker.as_ref());
+        let feature_timestamps = song_features.feature_timestamps(&self.feature_type);
         let feature_timestamps = feature_timestamps.as_slice();
 
-        let min_value = feature_timestamps
-            .iter()
-            .map(|(_, v)| *v)
-            .fold(f32::MAX, f32::min);
-        let max_value = feature_timestamps
-            .iter()
-            .map(|(_, v)| *v)
-            .fold(f32::MIN, f32::max);
+        let min_value = song_features.min_feature(&self.feature_type);
+        let max_value = song_features.max_feature(&self.feature_type);
 
         self.get_intensity(timestamp, feature_timestamps, max_value, min_value)
     }

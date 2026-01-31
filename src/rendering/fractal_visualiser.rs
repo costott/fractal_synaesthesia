@@ -87,7 +87,7 @@ pub struct FractalVisualiser {
 }
 impl FractalVisualiser {
     pub fn new(
-        params: &FractalParams,
+        params: Arc<Mutex<FractalParams>>,
         canvas_dims: CanvasDimensions,
         layer_manager: Arc<Mutex<LayerManager>>,
         quality: usize,
@@ -97,7 +97,7 @@ impl FractalVisualiser {
 
         // create initial reference orbit
         let reference_orbit = Arc::new(ReferenceOrbit::new(
-            Arc::new(Mutex::new(params.clone())),
+            params.clone(),
             layer_renderer.max_bailout2,
         ));
         let canvas = FractalCanvas::new(canvas_dims);

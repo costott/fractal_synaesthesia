@@ -1,7 +1,7 @@
 use macroquad::prelude::*;
 
 use crate::{
-    exporting::Exporter, rendering::algorithms::render_algorithms::FractalParams,
+    exporting::Exporter, project, rendering::algorithms::render_algorithms::FractalParams,
     ui::menus::audio_mapper::AudioMapperWindow,
 };
 
@@ -11,16 +11,25 @@ pub struct ExportingModal {
     progress_bar: ExportingProgressBar,
 }
 impl ExportingModal {
-    pub fn new(end_params: &FractalParams, ctx: &super::AudioMapperContext) -> Self {
+    pub fn new(
+        end_params: &FractalParams,
+        project: &crate::project::Project,
+        ctx: &super::AudioMapperContext,
+    ) -> Self {
         Self {
-            exporter: Exporter::new(0, ctx, end_params).unwrap(),
+            exporter: Exporter::new(0, project, ctx, end_params).unwrap(),
             progress_bar: ExportingProgressBar::start(0.0),
         }
     }
 }
 impl AudioMapperWindow for ExportingModal {
-    fn update(&mut self, egui_ctx: &egui::Context, ctx: &mut super::AudioMapperContext) {
-        self.exporter.update(ctx).unwrap();
+    fn update(
+        &mut self,
+        egui_ctx: &egui::Context,
+        project: &mut crate::project::Project,
+        ctx: &mut super::AudioMapperContext,
+    ) {
+        self.exporter.update(project, ctx).unwrap();
         self.progress_bar.update(self.exporter.get_progress(ctx));
 
         egui::Modal::new("export_popup".into()).show(egui_ctx, |ui| {

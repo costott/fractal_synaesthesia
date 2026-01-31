@@ -41,12 +41,13 @@ impl FractalSettingsWindow for LayersEditor {
     fn update(
         &mut self,
         egui_ctx: &egui::Context,
+        project: &mut crate::project::Project,
         ctx: &mut crate::ui::menus::fractal_settings::FractalSettingsContext,
     ) {
         self.params.sized_area("layers_editor", egui_ctx, |_| {
-            let is_changed = self
-                .layer_settings
-                .update(egui_ctx, ctx, self.selected_layer);
+            let is_changed =
+                self.layer_settings
+                    .update(egui_ctx, project, ctx, self.selected_layer);
 
             if is_changed {
                 self.layer_manager_settings
@@ -55,9 +56,12 @@ impl FractalSettingsWindow for LayersEditor {
                 ctx.request_render = true;
             }
 
-            let selected_layer_changed =
-                self.layer_manager_settings
-                    .update(egui_ctx, ctx, &mut self.selected_layer);
+            let selected_layer_changed = self.layer_manager_settings.update(
+                egui_ctx,
+                project,
+                ctx,
+                &mut self.selected_layer,
+            );
 
             if selected_layer_changed {
                 self.layer_settings.selected_layer_changed();
