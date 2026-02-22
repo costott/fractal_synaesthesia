@@ -23,19 +23,24 @@ pub const ACCENT_COLOUR: egui::Color32 = egui::Color32::from_rgb(223, 244, 255);
 pub const DARK_ACCENT_COLOUR: egui::Color32 = egui::Color32::from_rgb(50, 75, 100);
 
 enum AppMode {
-    FractalSettings(FractalSettingsMode),
-    AudioMapper(AudioMapperMode),
+    FractalSettings,
+    AudioMapper,
 }
 
 pub struct App {
     mode: AppMode,
+    fractal_settings: FractalSettingsMode,
+    audio_mapper: AudioMapperMode,
+
     project: Project,
 }
 impl App {
     pub fn new() -> Self {
         let project = Project::new();
         Self {
-            mode: AppMode::FractalSettings(FractalSettingsMode::new(&project)),
+            mode: AppMode::FractalSettings,
+            fractal_settings: FractalSettingsMode::new(&project),
+            audio_mapper: AudioMapperMode::new(&project),
             project,
         }
     }
@@ -43,19 +48,19 @@ impl App {
     pub fn update(&mut self) {
         egui_macroquad::ui(|egui_ctx| {
             match &mut self.mode {
-                AppMode::FractalSettings(fractal_settings) => {
-                    let to_swap = fractal_settings.update(&mut self.project, egui_ctx);
+                AppMode::FractalSettings => {
+                    let to_swap = self.fractal_settings.update(&mut self.project, egui_ctx);
 
                     if to_swap {
-                        self.mode = AppMode::AudioMapper(AudioMapperMode::new(&self.project));
+                        self.mode = AppMode::AudioMapper;
+                        self.audio_mapper.changed_fractal_settings(&self.project);
                     }
                 }
-                AppMode::AudioMapper(audio_mapper) => {
-                    let to_swap = audio_mapper.update(&mut self.project, egui_ctx);
+                AppMode::AudioMapper => {
+                    let to_swap = self.audio_mapper.update(&mut self.project, egui_ctx);
 
                     if to_swap {
-                        self.mode =
-                            AppMode::FractalSettings(FractalSettingsMode::new(&self.project));
+                        self.mode = AppMode::FractalSettings;
                     }
                 }
             };
@@ -64,8 +69,8 @@ impl App {
 
     pub fn draw(&self) {
         match &self.mode {
-            AppMode::FractalSettings(fractal_settings) => fractal_settings.draw(),
-            AppMode::AudioMapper(audio_mapper) => audio_mapper.draw(),
+            AppMode::FractalSettings => self.fractal_settings.draw(),
+            AppMode::AudioMapper => self.audio_mapper.draw(),
         };
         egui_macroquad::draw();
     }

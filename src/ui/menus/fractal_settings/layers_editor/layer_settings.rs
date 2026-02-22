@@ -2,12 +2,12 @@ use egui::{ImageButton, load::SizedTexture};
 
 use crate::{
     rendering::{
-        manager::layer::{LayerAlgorithmKind, LayerRange},
-        orbit_trap::{OrbitTrap, OrbitTrapAnalysis, OrbitTrapType},
+        manager::layer::LayerAlgorithmKind,
+        orbit_trap::{OrbitTrap, OrbitTrapType},
     },
     types::ComplexNumber,
     ui::{
-        Dropdown, menus::fractal_settings::layers_editor::palette_editor::PaletteEditor,
+        menus::fractal_settings::layers_editor::palette_editor::PaletteEditor,
         window::WindowParams,
     },
 };

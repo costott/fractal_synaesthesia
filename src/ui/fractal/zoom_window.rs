@@ -5,7 +5,6 @@ use std::sync::{Arc, Mutex};
 use crate::{
     rendering::algorithms::render_algorithms::FractalParams,
     types::{BigComplex, ComplexNumber},
-    ui::fractal::fractal_canvas::CanvasDimensions,
 };
 
 const MIN_ZOOM_SIZE: f32 = 0.01;

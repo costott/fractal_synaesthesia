@@ -1,7 +1,7 @@
 use macroquad::prelude::*;
 
 use crate::{
-    exporting::Exporter, project, rendering::algorithms::render_algorithms::FractalParams,
+    exporting::Exporter, rendering::algorithms::render_algorithms::FractalParams,
     ui::menus::audio_mapper::AudioMapperWindow,
 };
 

@@ -7,8 +7,7 @@ use std::{
 use crate::{
     rendering::{
         algorithms::render_algorithms::{FractalParams, ReferenceOrbit},
-        manager::{layer::*, layer_manager::LayerManager, layers_renderer::LayersRenderer},
-        palette::*,
+        manager::{layer_manager::LayerManager, layers_renderer::LayersRenderer},
     },
     ui::fractal::fractal_canvas::{CanvasDimensions, FractalCanvas},
 };
@@ -121,6 +120,11 @@ impl FractalVisualiser {
         self.canvas.cancel_current_render();
         self.canvas.change_dimensions(canvas_dims);
         self.start_canvas_render(self.quality);
+    }
+
+    pub fn set_layer_manager(&mut self, layer_manager: Arc<Mutex<LayerManager>>) {
+        self.layer_manager = layer_manager;
+        self.update_layers();
     }
 
     pub fn update_layers(&mut self) {

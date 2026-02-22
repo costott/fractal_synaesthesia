@@ -1,6 +1,4 @@
 use crate::types::colour::*;
-/// A colour palette used for rendering
-use egui::Rgba;
 use macroquad::prelude::{Image, Texture2D};
 use std::collections::HashSet;
 
