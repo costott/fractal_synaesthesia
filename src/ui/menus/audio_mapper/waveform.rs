@@ -17,7 +17,7 @@ impl Waveform {
         let volumes: Vec<f32> = frames.iter().map(|f| f.volume).collect();
 
         // normalization
-        let max = features.max_attribue(|f| f.volume);
+        let max = features.max_attribute(|f| f.volume);
         let normalized: Vec<f32> = volumes.iter().map(|v| v / max).collect();
 
         // downsample / resample to match target width
