@@ -4,7 +4,7 @@ use super::layer_algorithms::{LayerAlgorithm, LayerImplementation};
 use crate::types::*;
 
 use macroquad::prelude::*;
-use serde::{Deserialize, Serialize, ser::SerializeStruct};
+use serde::{Deserialize, ser::SerializeStruct};
 use smallvec::SmallVec;
 
 /// Fractal rendering algorithms

@@ -8,7 +8,6 @@ use crate::{
         video::{audio_mapper::AudioMapper, song_manager::SongManager},
     },
     types::BigComplex,
-    ui::{FractalSettings, menus::audio_mapper::AudioMapperContext},
 };
 
 pub mod audio_mapper;
@@ -60,6 +59,21 @@ impl VideoManager {
             original_layers: None,
             start_rotation: params.rotation,
         }
+    }
+
+    pub fn updated_fractal_settings(
+        &mut self,
+        project: &crate::project::Project,
+        song_manager: Option<&SongManager>,
+    ) {
+        let params = project.fractal_settings.params.lock().unwrap();
+        self.frame_manager = VideoFrameManager::new(params.clone());
+        self.zoom_timeline.final_pixel_step = params.pixel_step;
+        self.updated_audio_mapper(
+            song_manager,
+            project.fractal_settings.layers.clone(),
+            &project.audio_mapper,
+        );
     }
 
     pub fn updated_duration(&mut self, duration: f32) {
@@ -162,7 +176,7 @@ impl VideoManager {
 struct ZoomTimeline {
     /// (timestamp, pixel_step)
     samples: Vec<(f32, f64)>,
-    final_pixel_step: f64,
+    pub final_pixel_step: f64,
 }
 impl ZoomTimeline {
     /// Creates a linear zoom timeline from start to end pixel step over the given duration
