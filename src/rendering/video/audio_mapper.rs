@@ -1,6 +1,5 @@
-use std::collections::HashMap;
-
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 use crate::{
     audio::analyzer::{FeatureType, SongFeatures},
@@ -10,48 +9,12 @@ use crate::{
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct AudioMapper {
-    on_beat: OnBeatMapper,
-    tempo: ContinuousSampleMapper,
-    volume: ContinuousSampleMapper,
-    pitch: ContinuousSampleMapper,
+    layer_mappers: HashMap<usize, Vec<MapperType>>,
 }
 impl AudioMapper {
     pub fn empty() -> Self {
         Self {
-            on_beat: OnBeatMapper::empty(),
-            tempo: ContinuousSampleMapper::empty(FeatureType::Tempo),
-            volume: ContinuousSampleMapper::empty(FeatureType::Volume),
-            pitch: ContinuousSampleMapper::empty(FeatureType::Pitch),
-        }
-    }
-
-    pub fn test() -> Self {
-        let on_beat_layer_actions = HashMap::from([(
-            0,
-            vec![
-                // OnBeatLayerAction::Flash(macroquad::prelude::WHITE),
-                LayerAction::ShiftPalette(0.25),
-            ],
-        )]);
-
-        let volume_layer_actions = HashMap::from([(0, vec![LayerAction::AddZoomSpeed(100.0)])]);
-
-        Self {
-            on_beat: OnBeatMapper {
-                layer_actions: on_beat_layer_actions,
-                attack_duration: 0.1,
-                decay_duration: 0.1,
-            },
-            tempo: ContinuousSampleMapper::empty(FeatureType::Tempo),
-            volume: ContinuousSampleMapper {
-                feature_type: FeatureType::Volume,
-                window: ContinuousSampleWindow {
-                    duration: 1.0,
-                    window_type: ContinuousSampleWindowType::Centered,
-                },
-                layer_actions: volume_layer_actions,
-            },
-            pitch: ContinuousSampleMapper::empty(FeatureType::Pitch),
+            layer_mappers: HashMap::new(),
         }
     }
 
@@ -64,17 +27,11 @@ impl AudioMapper {
     ) -> Layer {
         let mut layer_effect = LayerEffect::none();
 
-        layer_effect.combine_with(&self.on_beat.layer_effect_at(
-            layer_index,
-            song_features,
-            timestamp,
-        ));
-        for mapper in &[&self.tempo, &self.volume, &self.pitch] {
-            layer_effect.combine_with(&mapper.layer_effect_at(
-                layer_index,
-                song_features,
-                timestamp,
-            ));
+        if let Some(mappers) = self.layer_mappers.get(&layer_index) {
+            for mapper in mappers {
+                layer_effect
+                    .combine_with(&mapper.get_mapper().layer_effect(song_features, timestamp));
+            }
         }
 
         layer_effect.apply_to_layer(layer)
@@ -87,12 +44,15 @@ impl AudioMapper {
         timestamp: f32,
     ) -> f64 {
         let mut increase = 0.0;
-        increase += self
-            .on_beat
-            .get_zoom_speed_increase_at(layer_index, song_features, timestamp);
-        for mapper in &[&self.tempo, &self.volume, &self.pitch] {
-            increase += mapper.get_zoom_speed_increase_at(layer_index, song_features, timestamp);
+
+        if let Some(mappers) = self.layer_mappers.get(&layer_index) {
+            for mapper in mappers {
+                increase += mapper
+                    .get_mapper()
+                    .get_zoom_speed_increase(song_features, timestamp);
+            }
         }
+
         increase
     }
 
@@ -103,72 +63,152 @@ impl AudioMapper {
         timestamp: f32,
     ) -> f64 {
         let mut increase = 0.0;
-        increase += self
-            .on_beat
-            .get_rotation_increase_at(layer_index, song_features, timestamp);
-        for mapper in &[&self.tempo, &self.volume, &self.pitch] {
-            increase += mapper.get_rotation_increase_at(layer_index, song_features, timestamp);
+
+        if let Some(mappers) = self.layer_mappers.get(&layer_index) {
+            for mapper in mappers {
+                increase += mapper
+                    .get_mapper()
+                    .get_rotation_increase(song_features, timestamp);
+            }
         }
+
         increase
     }
 
-    pub fn on_beat_layer_actions_mut(&mut self) -> &mut HashMap<usize, Vec<LayerAction>> {
-        &mut self.on_beat.layer_actions
-    }
-
-    pub fn tempo_layer_actions_mut(&mut self) -> &mut HashMap<usize, Vec<LayerAction>> {
-        &mut self.tempo.layer_actions
-    }
-
-    pub fn volume_layer_actions_mut(&mut self) -> &mut HashMap<usize, Vec<LayerAction>> {
-        &mut self.volume.layer_actions
-    }
-
-    pub fn pitch_layer_actions_mut(&mut self) -> &mut HashMap<usize, Vec<LayerAction>> {
-        &mut self.pitch.layer_actions
-    }
-
-    pub fn on_beat_attack_duration_mut(&mut self) -> &mut f32 {
-        &mut self.on_beat.attack_duration
-    }
-
-    pub fn on_beat_decay_duration_mut(&mut self) -> &mut f32 {
-        &mut self.on_beat.decay_duration
-    }
-
-    pub fn tempo_window_mut(&mut self) -> &mut ContinuousSampleWindow {
-        &mut self.tempo.window
-    }
-
-    pub fn volume_window_mut(&mut self) -> &mut ContinuousSampleWindow {
-        &mut self.volume.window
-    }
-
-    pub fn pitch_window_mut(&mut self) -> &mut ContinuousSampleWindow {
-        &mut self.pitch.window
+    pub fn layer_mappings_mut(&mut self, layer_index: usize) -> &mut Vec<MapperType> {
+        self.layer_mappers
+            .entry(layer_index)
+            .or_insert_with(Vec::new)
     }
 }
 
 pub trait Mapper {
-    fn layer_effect_at(
-        &self,
-        layer_index: usize,
-        song_features: &SongFeatures,
-        timestamp: f32,
-    ) -> LayerEffect;
+    fn n_mappings(&self) -> usize;
 
-    fn get_zoom_speed_increase_at(
-        &self,
-        layer_index: usize,
-        song_features: &SongFeatures,
-        timestamp: f32,
-    ) -> f64;
-    fn get_rotation_increase_at(
-        &self,
-        layer_index: usize,
-        song_features: &SongFeatures,
-        timestamp: f32,
-    ) -> f64;
+    fn clone_layer_actions(&self) -> Vec<LayerAction>;
+    fn set_layer_actions(&mut self, actions: Vec<LayerAction>);
+
+    fn layer_actions_mut(&mut self) -> Vec<&mut LayerAction>;
+
+    fn add_default_mapping(&mut self);
+    fn remove_action(&mut self, index: usize) -> Option<LayerAction>;
+    fn layer_effect(&self, song_features: &SongFeatures, timestamp: f32) -> LayerEffect;
+    fn get_zoom_speed_increase(&self, song_features: &SongFeatures, timestamp: f32) -> f64;
+    fn get_rotation_increase(&self, song_features: &SongFeatures, timestamp: f32) -> f64;
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+pub enum MapperType {
+    OnBeat(OnBeatMapper),
+    Pitch(ContinuousSampleMapper),
+    Volume(ContinuousSampleMapper),
+    Tempo(ContinuousSampleMapper),
+    Brightness(ContinuousSampleMapper),
+    Activity(ContinuousSampleMapper),
+    BassEnergy(ContinuousSampleMapper),
+    MidEnergy(ContinuousSampleMapper),
+    TrebleEnergy(ContinuousSampleMapper),
+    Intensity(ContinuousSampleMapper),
+    Positivity(ContinuousSampleMapper),
+}
+impl MapperType {
+    pub fn get_mapper(&self) -> &dyn Mapper {
+        match self {
+            MapperType::OnBeat(m) => m,
+            MapperType::Pitch(m)
+            | MapperType::Volume(m)
+            | MapperType::Tempo(m)
+            | MapperType::Brightness(m)
+            | MapperType::Activity(m)
+            | MapperType::BassEnergy(m)
+            | MapperType::MidEnergy(m)
+            | MapperType::TrebleEnergy(m)
+            | MapperType::Intensity(m)
+            | MapperType::Positivity(m) => m,
+        }
+    }
+
+    pub fn get_mapper_mut(&mut self) -> &mut dyn Mapper {
+        match self {
+            MapperType::OnBeat(m) => m,
+            MapperType::Pitch(m)
+            | MapperType::Volume(m)
+            | MapperType::Tempo(m)
+            | MapperType::Brightness(m)
+            | MapperType::Activity(m)
+            | MapperType::BassEnergy(m)
+            | MapperType::MidEnergy(m)
+            | MapperType::TrebleEnergy(m)
+            | MapperType::Intensity(m)
+            | MapperType::Positivity(m) => m,
+        }
+    }
+
+    pub fn get_on_beat_mapper_mut(&mut self) -> Option<&mut OnBeatMapper> {
+        match self {
+            MapperType::OnBeat(m) => Some(m),
+            _ => None,
+        }
+    }
+
+    pub fn get_continuous_sample_mapper_mut(&mut self) -> Option<&mut ContinuousSampleMapper> {
+        match self {
+            MapperType::Pitch(m)
+            | MapperType::Volume(m)
+            | MapperType::Tempo(m)
+            | MapperType::Brightness(m)
+            | MapperType::Activity(m)
+            | MapperType::BassEnergy(m)
+            | MapperType::MidEnergy(m)
+            | MapperType::TrebleEnergy(m)
+            | MapperType::Intensity(m)
+            | MapperType::Positivity(m) => Some(m),
+            _ => None,
+        }
+    }
+}
+impl Default for MapperType {
+    fn default() -> Self {
+        MapperType::OnBeat(OnBeatMapper::empty())
+    }
+}
+impl crate::ui::Dropdown<MapperType> for MapperType {
+    fn get_variants() -> Vec<MapperType> {
+        vec![
+            MapperType::OnBeat(OnBeatMapper::empty()),
+            MapperType::Pitch(ContinuousSampleMapper::empty(FeatureType::Pitch)),
+            MapperType::Volume(ContinuousSampleMapper::empty(FeatureType::Volume)),
+            MapperType::Tempo(ContinuousSampleMapper::empty(FeatureType::Tempo)),
+            MapperType::Brightness(ContinuousSampleMapper::empty(FeatureType::Brightness)),
+            MapperType::Activity(ContinuousSampleMapper::empty(FeatureType::Activity)),
+            MapperType::BassEnergy(ContinuousSampleMapper::empty(FeatureType::BassEnergy)),
+            MapperType::MidEnergy(ContinuousSampleMapper::empty(FeatureType::MidEnergy)),
+            MapperType::TrebleEnergy(ContinuousSampleMapper::empty(FeatureType::HighEnergy)),
+            MapperType::Intensity(ContinuousSampleMapper::empty(FeatureType::Intensity)),
+            MapperType::Positivity(ContinuousSampleMapper::empty(FeatureType::Positivity)),
+        ]
+    }
+
+    fn get_text(&self) -> &str {
+        match self {
+            MapperType::OnBeat(_) => "On Beat",
+            MapperType::Pitch(_) => "Pitch",
+            MapperType::Volume(_) => "Volume",
+            MapperType::Tempo(_) => "Tempo",
+            MapperType::Brightness(_) => "Brightness",
+            MapperType::Activity(_) => "Activity",
+            MapperType::BassEnergy(_) => "Bass Energy",
+            MapperType::MidEnergy(_) => "Mid Energy",
+            MapperType::TrebleEnergy(_) => "Treble Energy",
+            MapperType::Intensity(_) => "Intensity",
+            MapperType::Positivity(_) => "Positivity",
+        }
+    }
+}
+impl PartialEq for MapperType {
+    fn eq(&self, other: &Self) -> bool {
+        std::mem::discriminant(self) == std::mem::discriminant(other)
+    }
 }
 
 /// Effect to apply to a layer
@@ -418,17 +458,18 @@ impl crate::ui::menus::audio_mapper::audio_mapping_window::MappingAction for Lay
 }
 
 #[derive(Clone, Serialize, Deserialize)]
-struct OnBeatMapper {
+pub struct OnBeatMapper {
     /// maps layer index to beat action
-    layer_actions: HashMap<usize, Vec<LayerAction>>,
+    // layer_actions: HashMap<usize, Vec<LayerAction>>,
+    layer_actions: Vec<LayerAction>,
 
-    attack_duration: f32,
-    decay_duration: f32,
+    pub attack_duration: f32,
+    pub decay_duration: f32,
 }
 impl OnBeatMapper {
     pub fn empty() -> Self {
         Self {
-            layer_actions: HashMap::new(),
+            layer_actions: Vec::new(),
             attack_duration: 0.1,
             decay_duration: 0.2,
         }
@@ -469,70 +510,133 @@ impl OnBeatMapper {
     }
 }
 impl Mapper for OnBeatMapper {
-    fn layer_effect_at(
-        &self,
-        layer_index: usize,
-        song_features: &SongFeatures,
-        timestamp: f32,
-    ) -> LayerEffect {
+    fn n_mappings(&self) -> usize {
+        self.layer_actions.len()
+    }
+
+    fn clone_layer_actions(&self) -> Vec<LayerAction> {
+        self.layer_actions.clone()
+    }
+
+    fn set_layer_actions(&mut self, actions: Vec<LayerAction>) {
+        self.layer_actions = actions;
+    }
+
+    fn layer_actions_mut(&mut self) -> Vec<&mut LayerAction> {
+        self.layer_actions.iter_mut().collect()
+    }
+
+    fn add_default_mapping(&mut self) {
+        self.layer_actions.push(LayerAction::default());
+    }
+
+    fn remove_action(&mut self, index: usize) -> Option<LayerAction> {
+        if index < self.layer_actions.len() {
+            Some(self.layer_actions.remove(index))
+        } else {
+            None
+        }
+    }
+
+    fn layer_effect(&self, song_features: &SongFeatures, timestamp: f32) -> LayerEffect {
         let mut effect = LayerEffect::none();
         let beat_intensity =
             self.intensity_from_nearest_beat(timestamp, song_features.beat_timestamps().as_slice());
 
-        if let Some(actions) = self.layer_actions.get(&layer_index) {
-            for beat_action in actions {
-                effect.apply_action(beat_action, beat_intensity);
-            }
+        for beat_action in &self.layer_actions {
+            effect.apply_action(beat_action, beat_intensity);
         }
 
         effect
     }
 
-    fn get_zoom_speed_increase_at(
-        &self,
-        layer_index: usize,
-        song_features: &SongFeatures,
-        timestamp: f32,
-    ) -> f64 {
+    fn get_zoom_speed_increase(&self, song_features: &SongFeatures, timestamp: f32) -> f64 {
         let mut increase = 0.0;
         let beat_intensity =
             self.intensity_from_nearest_beat(timestamp, song_features.beat_timestamps().as_slice());
 
-        if let Some(found_actions) = self.layer_actions.get(&layer_index) {
-            for action in found_actions {
-                match action {
-                    LayerAction::AddZoomSpeed(p) => increase += *p * beat_intensity as f64,
-                    _ => {}
-                }
+        for action in &self.layer_actions {
+            match action {
+                LayerAction::AddZoomSpeed(p) => increase += *p * beat_intensity as f64,
+                _ => {}
             }
         }
 
         increase
     }
 
-    fn get_rotation_increase_at(
-        &self,
-        layer_index: usize,
-        song_features: &SongFeatures,
-        timestamp: f32,
-    ) -> f64 {
+    fn get_rotation_increase(&self, song_features: &SongFeatures, timestamp: f32) -> f64 {
         let mut increase = 0.0;
 
         let beat_intensity =
             self.intensity_from_nearest_beat(timestamp, song_features.beat_timestamps().as_slice());
 
-        if let Some(found_actions) = self.layer_actions.get(&layer_index) {
-            for action in found_actions {
-                match action {
-                    LayerAction::Rotate(deg) => {
-                        increase += deg.to_radians() * beat_intensity as f64
-                    }
-                    _ => {}
-                }
+        for action in &self.layer_actions {
+            match action {
+                LayerAction::Rotate(deg) => increase += deg.to_radians() * beat_intensity as f64,
+                _ => {}
             }
         }
 
         increase
+    }
+}
+
+#[derive(Clone, Copy, Serialize, Deserialize)]
+pub enum IntensityEmphasis {
+    Equal,     // Linear mapping
+    High(u32), // Higher intensities emphasised more (exponential)
+    Low(u32),  // Lower intensities emphasised more (inverse exponential)
+}
+impl IntensityEmphasis {
+    pub fn interpolate(&self, current: f32, max: f32, min: f32) -> f32 {
+        if max - min == 0.0 {
+            return 0.0;
+        }
+
+        let fraction = ((current - min) / (max - min)).clamp(0.0, 1.0);
+        match self {
+            IntensityEmphasis::Equal => fraction,
+            IntensityEmphasis::High(exp) => fraction.powi(*exp as i32),
+            IntensityEmphasis::Low(exp) => 1.0 - (1.0 - fraction).powi(*exp as i32),
+        }
+    }
+}
+impl crate::ui::Dropdown<IntensityEmphasis> for IntensityEmphasis {
+    fn get_variants() -> Vec<IntensityEmphasis> {
+        vec![
+            IntensityEmphasis::Equal,
+            IntensityEmphasis::High(1),
+            IntensityEmphasis::Low(1),
+        ]
+    }
+
+    fn get_text(&self) -> &str {
+        match self {
+            IntensityEmphasis::Equal => "Equal",
+            IntensityEmphasis::High(_) => "Highs",
+            IntensityEmphasis::Low(_) => "Lows",
+        }
+    }
+
+    fn get_tooltip(&self) -> Option<String> {
+        Some(
+            match self {
+                IntensityEmphasis::Equal => "Intensity has a linear effect on the mapping",
+                IntensityEmphasis::High(_) => {
+                    "Higher intensities are emphasised more, with an exponential curve"
+                }
+                IntensityEmphasis::Low(_) => {
+                    "Lower intensities are emphasised more, with an inverse exponential curve"
+                }
+            }
+            .to_string(),
+        )
+    }
+}
+impl PartialEq for IntensityEmphasis {
+    fn eq(&self, other: &Self) -> bool {
+        std::mem::discriminant(self) == std::mem::discriminant(other)
     }
 }
 
@@ -602,9 +706,11 @@ pub struct ContinuousSampleMapper {
     // feature_picker: Box<dyn Fn(&FrameFeatures) -> f32>,
     feature_type: FeatureType,
 
-    window: ContinuousSampleWindow,
+    pub window: ContinuousSampleWindow,
+    pub intensity_emphasis: IntensityEmphasis,
     /// Maps layer index to layer action
-    layer_actions: HashMap<usize, Vec<LayerAction>>,
+    // layer_actions: HashMap<usize, Vec<LayerAction>>,
+    layer_actions: Vec<LayerAction>,
 }
 impl ContinuousSampleMapper {
     pub fn empty(feature_type: FeatureType) -> Self {
@@ -614,7 +720,8 @@ impl ContinuousSampleMapper {
                 duration: 0.1,
                 window_type: ContinuousSampleWindowType::Centered,
             },
-            layer_actions: HashMap::new(),
+            intensity_emphasis: IntensityEmphasis::Equal,
+            layer_actions: Vec::new(),
         }
     }
 
@@ -644,11 +751,8 @@ impl ContinuousSampleMapper {
         let average_value: f32 =
             values_in_window.iter().sum::<f32>() / (values_in_window.len() as f32);
 
-        if max_value - min_value == 0.0 {
-            0.0
-        } else {
-            (average_value - min_value) / (max_value - min_value)
-        }
+        self.intensity_emphasis
+            .interpolate(average_value, max_value, min_value)
     }
 
     fn intensity_from_song_features(&self, timestamp: f32, song_features: &SongFeatures) -> f32 {
@@ -662,63 +766,70 @@ impl ContinuousSampleMapper {
     }
 }
 impl Mapper for ContinuousSampleMapper {
-    fn layer_effect_at(
-        &self,
-        layer_index: usize,
-        song_features: &SongFeatures,
-        timestamp: f32,
-    ) -> LayerEffect {
+    fn n_mappings(&self) -> usize {
+        self.layer_actions.len()
+    }
+
+    fn clone_layer_actions(&self) -> Vec<LayerAction> {
+        self.layer_actions.clone()
+    }
+
+    fn set_layer_actions(&mut self, actions: Vec<LayerAction>) {
+        self.layer_actions = actions;
+    }
+
+    fn layer_actions_mut(&mut self) -> Vec<&mut LayerAction> {
+        self.layer_actions.iter_mut().collect()
+    }
+
+    fn add_default_mapping(&mut self) {
+        self.layer_actions.push(LayerAction::default());
+    }
+
+    fn remove_action(&mut self, index: usize) -> Option<LayerAction> {
+        if index < self.layer_actions.len() {
+            Some(self.layer_actions.remove(index))
+        } else {
+            None
+        }
+    }
+
+    fn layer_effect(&self, song_features: &SongFeatures, timestamp: f32) -> LayerEffect {
         let mut effect = LayerEffect::none();
 
         let intensity = self.intensity_from_song_features(timestamp, song_features);
 
-        if let Some(actions) = self.layer_actions.get(&layer_index) {
-            for layer_action in actions {
-                effect.apply_action(layer_action, intensity);
-            }
+        for action in &self.layer_actions {
+            effect.apply_action(action, intensity);
         }
 
         effect
     }
 
-    fn get_zoom_speed_increase_at(
-        &self,
-        layer_index: usize,
-        song_features: &SongFeatures,
-        timestamp: f32,
-    ) -> f64 {
+    fn get_zoom_speed_increase(&self, song_features: &SongFeatures, timestamp: f32) -> f64 {
         let mut increase = 0.0;
 
         let intensity = self.intensity_from_song_features(timestamp, song_features);
 
-        if let Some(actions) = self.layer_actions.get(&layer_index) {
-            for layer_action in actions {
-                match layer_action {
-                    LayerAction::AddZoomSpeed(p) => increase += *p * intensity as f64,
-                    _ => {}
-                }
+        for action in &self.layer_actions {
+            match action {
+                LayerAction::AddZoomSpeed(p) => increase += *p * intensity as f64,
+                _ => {}
             }
         }
 
         increase
     }
 
-    fn get_rotation_increase_at(
-        &self,
-        layer_index: usize,
-        song_features: &SongFeatures,
-        timestamp: f32,
-    ) -> f64 {
+    fn get_rotation_increase(&self, song_features: &SongFeatures, timestamp: f32) -> f64 {
         let mut increase = 0.0;
 
         let intensity = self.intensity_from_song_features(timestamp, song_features);
 
-        if let Some(actions) = self.layer_actions.get(&layer_index) {
-            for layer_action in actions {
-                match layer_action {
-                    LayerAction::Rotate(deg) => increase += deg.to_radians() * intensity as f64,
-                    _ => {}
-                }
+        for action in &self.layer_actions {
+            match action {
+                LayerAction::Rotate(deg) => increase += deg.to_radians() * intensity as f64,
+                _ => {}
             }
         }
 
