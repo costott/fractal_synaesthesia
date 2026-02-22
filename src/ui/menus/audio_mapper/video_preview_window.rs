@@ -3,18 +3,11 @@ use std::sync::{Arc, Mutex};
 use egui::Widget;
 
 use crate::{
-    audio::{analyzer::SongFeatures, song::Song},
     rendering::{
-        algorithms::render_algorithms::FractalParams,
-        fractal_visualiser::FractalVisualiser,
-        video::{
-            VideoFrameManager, VideoManager,
-            audio_mapper::{self, AudioMapper},
-        },
+        algorithms::render_algorithms::FractalParams, fractal_visualiser::FractalVisualiser,
     },
     ui::{
-        fractal::fractal_canvas::CanvasDimensions,
-        menus::audio_mapper::{AudioMapperWindow, audio_player::AudioPlayer},
+        fractal::fractal_canvas::CanvasDimensions, menus::audio_mapper::audio_player::AudioPlayer,
         window::WindowParams,
     },
 };
@@ -34,7 +27,6 @@ impl VideoPreviewWindow {
     pub fn new(
         params: WindowParams,
         project: &crate::project::Project,
-        ctx: &super::AudioMapperContext,
         unscaled_canvas_dims: CanvasDimensions,
         fixed_preview_height: u16,
         initial_fractal_params: Arc<Mutex<FractalParams>>,
@@ -57,6 +49,13 @@ impl VideoPreviewWindow {
             rendered_timestamp: None,
             are_rendering: false,
         }
+    }
+
+    pub fn changed_fractal_settings(&mut self, project: &crate::project::Project) {
+        self.preview_visualiser
+            .set_layer_manager(project.fractal_settings.layers.clone());
+        self.preview_visualiser
+            .update_render(project.fractal_settings.params.clone());
     }
 
     fn load_song(&mut self, song_path: &str) -> Result<(), Box<dyn std::error::Error>> {

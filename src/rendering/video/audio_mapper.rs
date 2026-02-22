@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    audio::analyzer::{FeatureType, FrameFeatures, SongFeatures},
+    audio::analyzer::{FeatureType, SongFeatures},
     rendering::manager::layer::Layer,
     types::colour::*,
 };

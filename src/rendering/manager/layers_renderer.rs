@@ -7,7 +7,7 @@ use crate::{
             render_algorithms::{Fractal, ReferenceOrbit, analyse_pixel},
         },
         manager::{
-            layer::LayerAlgorithmKind, layer_error::LayerError, layer_manager::LayerManager,
+            layer_error::LayerError, layer_manager::LayerManager,
         },
     },
     types::{Complex, colour::*},
