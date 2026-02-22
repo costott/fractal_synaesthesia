@@ -1,19 +1,10 @@
-use std::{
-    path::PathBuf,
-    sync::{Arc, Mutex},
-};
+use std::path::PathBuf;
 
 use macroquad::prelude::*;
 
 use crate::{
-    rendering::{
-        manager::layer_manager::LayerManager,
-        video::{VideoManager, audio_mapper::AudioMapper, song_manager::SongManager},
-    },
-    ui::{
-        AppModeScreen, FractalSettings, fractal::fractal_canvas::CanvasDimensions,
-        window::WindowParams,
-    },
+    rendering::video::{VideoManager, song_manager::SongManager},
+    ui::{AppModeScreen, fractal::fractal_canvas::CanvasDimensions, window::WindowParams},
 };
 
 mod video_preview_window;
@@ -29,7 +20,11 @@ mod export_menu;
 use export_menu::ExportMenu;
 mod exporting_modal;
 use exporting_modal::ExportingModal;
+mod audio_mapper_footer;
 mod waveform;
+use audio_mapper_footer::AudioMapperFooter;
+mod project_manager;
+use project_manager::ProjectManager;
 
 pub const BACKGROUND_PRIMARY_COLOUR: egui::Color32 = egui::Color32::from_rgb(20, 20, 20);
 pub const BACKGROUND_SECONDARY_COLOUR: egui::Color32 = egui::Color32::from_rgb(50, 50, 50);
@@ -38,8 +33,9 @@ pub struct AudioMapperMode {
     context: AudioMapperContext,
 
     // -------------------------------------
-    // top bar: song settings
+    // top bar: song settings + save/load project
     song_settings: SongSettings,
+    project_manager: ProjectManager,
     // middle section: video preview + settings
     video_preview_window: VideoPreviewWindow,
 
@@ -48,6 +44,7 @@ pub struct AudioMapperMode {
     exporting_modal: Option<ExportingModal>,
     // bottom section: audio mapping
     audio_mapping_window: AudioMappingWindow,
+    footer: AudioMapperFooter,
     // -------------------------------------
 }
 impl AudioMapperMode {
@@ -68,10 +65,15 @@ impl AudioMapperMode {
                 x: 0,
                 y: 0,
             }),
+            project_manager: ProjectManager::new(WindowParams {
+                width: (screen_width() * 0.3) as u16,
+                height: 60,
+                x: (screen_width() * 0.7) as u16,
+                y: 0,
+            }),
             video_preview_window: VideoPreviewWindow::new(
                 video_preview_params.clone(),
                 project,
-                &context,
                 context.video_dimensions,
                 345,
                 project.fractal_settings.params.clone(),
@@ -92,12 +94,23 @@ impl AudioMapperMode {
             audio_mapping_window: AudioMappingWindow::new(WindowParams {
                 width: screen_width() as u16,
                 height: screen_height() as u16
-                    - (video_preview_params.y + video_preview_params.height),
+                    - (video_preview_params.y + video_preview_params.height + 30),
                 x: 0,
                 y: video_preview_params.y + video_preview_params.height,
             }),
+            footer: AudioMapperFooter::new(WindowParams {
+                width: screen_width() as u16,
+                height: 30,
+                x: 0,
+                y: screen_height() as u16 - 30,
+            }),
             context,
         }
+    }
+
+    pub fn changed_fractal_settings(&mut self, project: &crate::project::Project) {
+        self.context.updated_fractal_settings(project);
+        self.video_preview_window.changed_fractal_settings(project);
     }
 }
 impl AppModeScreen for AudioMapperMode {
@@ -170,6 +183,13 @@ impl AppModeScreen for AudioMapperMode {
 
         self.export_menu.update(egui_ctx, &mut self.context);
 
+        self.project_manager
+            .update(egui_ctx, project, &mut self.context);
+
+        if self.footer.update(egui_ctx) {
+            return true;
+        }
+
         false
     }
 
@@ -216,6 +236,11 @@ impl AudioMapperContext {
             }),
             intermediate_pngs: true,
         }
+    }
+
+    pub fn updated_fractal_settings(&mut self, project: &crate::project::Project) {
+        self.video_manager
+            .updated_fractal_settings(project, self.song_manager.as_ref());
     }
 
     pub fn change_fps(&mut self, project: &mut crate::project::Project, fps: usize) {
