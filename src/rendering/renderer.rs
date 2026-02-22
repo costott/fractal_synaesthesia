@@ -4,7 +4,7 @@ use std::sync::{
     mpsc::{self},
 };
 
-use macroquad::{color::Color, texture::Image};
+use macroquad::color::Color;
 use threadpool::ThreadPool;
 
 use crate::{

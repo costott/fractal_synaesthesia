@@ -1,5 +1,4 @@
 use aubio_rs::{OnsetMode, Pitch, PitchMode, Tempo};
-use ffmpeg_next::Frame;
 use hound::SampleFormat;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
