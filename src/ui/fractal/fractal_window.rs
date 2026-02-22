@@ -18,7 +18,6 @@ pub struct FractalWindow {
 
     fractal_visualiser: FractalVisualiser,
     zoom_window: ZoomWindow,
-    is_open: bool,
 
     /// Used for initial render
     initialised: bool,
@@ -39,7 +38,6 @@ impl FractalWindow {
             ),
             params: window_params,
             zoom_window: ZoomWindow::new(),
-            is_open: true,
             initialised: false,
         }
     }
