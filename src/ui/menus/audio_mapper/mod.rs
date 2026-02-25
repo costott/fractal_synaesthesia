@@ -1,4 +1,5 @@
 use std::path::PathBuf;
+use std::path::PathBuf;
 
 use macroquad::prelude::*;
 
@@ -23,7 +24,11 @@ use export_menu::ExportMenu;
 mod exporting_modal;
 use exporting_modal::ExportingModal;
 mod audio_mapper_footer;
+mod audio_mapper_footer;
 mod waveform;
+use audio_mapper_footer::AudioMapperFooter;
+mod project_manager;
+use project_manager::ProjectManager;
 use audio_mapper_footer::AudioMapperFooter;
 mod project_manager;
 use project_manager::ProjectManager;
@@ -36,7 +41,9 @@ pub struct AudioMapperMode {
 
     // -------------------------------------
     // top bar: song settings + save/load project
+    // top bar: song settings + save/load project
     song_settings: SongSettings,
+    project_manager: ProjectManager,
     project_manager: ProjectManager,
     // middle section: video preview + settings
     video_preview_window: VideoPreviewWindow,
@@ -46,6 +53,7 @@ pub struct AudioMapperMode {
     exporting_modal: Option<ExportingModal>,
     // bottom section: audio mapping
     audio_mapping_window: AudioMappingWindow,
+    footer: AudioMapperFooter,
     footer: AudioMapperFooter,
     // -------------------------------------
 }
@@ -65,6 +73,12 @@ impl AudioMapperMode {
                 width: screen_width() as u16,
                 height: 60,
                 x: 0,
+                y: 0,
+            }),
+            project_manager: ProjectManager::new(WindowParams {
+                width: (screen_width() * 0.3) as u16,
+                height: 60,
+                x: (screen_width() * 0.7) as u16,
                 y: 0,
             }),
             project_manager: ProjectManager::new(WindowParams {
@@ -97,6 +111,7 @@ impl AudioMapperMode {
                 width: screen_width() as u16,
                 height: screen_height() as u16
                     - (video_preview_params.y + video_preview_params.height + 30),
+                    - (video_preview_params.y + video_preview_params.height + 30),
                 x: 0,
                 y: video_preview_params.y + video_preview_params.height,
             }),
@@ -106,8 +121,19 @@ impl AudioMapperMode {
                 x: 0,
                 y: screen_height() as u16 - 30,
             }),
+            footer: AudioMapperFooter::new(WindowParams {
+                width: screen_width() as u16,
+                height: 30,
+                x: 0,
+                y: screen_height() as u16 - 30,
+            }),
             context,
         }
+    }
+
+    pub fn changed_fractal_settings(&mut self, project: &crate::project::Project) {
+        self.context.updated_fractal_settings(project);
+        self.video_preview_window.changed_fractal_settings(project);
     }
 
     pub fn changed_fractal_settings(&mut self, project: &crate::project::Project) {
@@ -192,6 +218,13 @@ impl AppModeScreen for AudioMapperMode {
             return true;
         }
 
+        self.project_manager
+            .update(egui_ctx, project, &mut self.context);
+
+        if self.footer.update(egui_ctx) {
+            return true;
+        }
+
         false
     }
 
@@ -238,6 +271,11 @@ impl AudioMapperContext {
             }),
             intermediate_pngs: true,
         }
+    }
+
+    pub fn updated_fractal_settings(&mut self, project: &crate::project::Project) {
+        self.video_manager
+            .updated_fractal_settings(project, self.song_manager.as_ref());
     }
 
     pub fn updated_fractal_settings(&mut self, project: &crate::project::Project) {
