@@ -4,7 +4,10 @@ use macroquad::prelude::*;
 
 use crate::{
     rendering::video::{VideoManager, song_manager::SongManager},
-    ui::{AppModeScreen, fractal::fractal_canvas::CanvasDimensions, window::WindowParams},
+    ui::{
+        AppModeScreen, fractal::fractal_canvas::CanvasDimensions,
+        menus::audio_mapper::audio_mapping_window::AudioMappingWindow, window::WindowParams,
+    },
 };
 
 mod video_preview_window;
@@ -12,7 +15,6 @@ use video_preview_window::VideoPreviewWindow;
 mod song_settings;
 use song_settings::SongSettings;
 pub mod audio_mapping_window;
-use audio_mapping_window::AudioMappingWindow;
 mod audio_player;
 mod video_settings;
 use video_settings::VideoSettings;
