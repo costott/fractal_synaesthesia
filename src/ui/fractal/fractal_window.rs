@@ -68,6 +68,7 @@ impl FractalSettingsWindow for FractalWindow {
         let changed = self.zoom_window.update(
             self.params.get_bounding_rect(),
             project.fractal_settings.params.clone(),
+            &mut ctx.zoom_window_state,
         );
 
         if ctx.update_layers {

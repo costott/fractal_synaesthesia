@@ -6,7 +6,7 @@ use crate::ui::{
 };
 use macroquad::prelude::*;
 
-#[derive(PartialEq, Eq)]
+#[derive(PartialEq, Eq, Clone, Copy, Debug)]
 enum SidebarTab {
     Parameters,
     Layers,
@@ -66,8 +66,12 @@ impl FractalSettingsWindow for Sidebar {
                     egui::Pos2::new(ui.max_rect().right() + 1.0, ui.max_rect().top()),
                     egui::Pos2::new(ui.max_rect().right() + 1.0, ui.max_rect().bottom()),
                 ],
-                egui::Stroke::new(2.0, egui::Color32::BLACK),
+                egui::Stroke::new(1.0, egui::Color32::GRAY),
             );
+
+            let background_colour = egui::Color32::from_gray(245);
+            ui.painter()
+                .rect_filled(ui.max_rect(), 0.0, background_colour);
 
             ui.horizontal(|ui| {
                 ui.style_mut().spacing.item_spacing = egui::Vec2::new(0.0, 0.0);
@@ -76,11 +80,12 @@ impl FractalSettingsWindow for Sidebar {
 
                 for tab in SidebarTab::tabs() {
                     let is_selected = self.selected_tab == tab;
-                    let button = egui::Button::new(tab.get_text()).fill(if is_selected {
-                        egui::Color32::WHITE
-                    } else {
-                        egui::Color32::LIGHT_GRAY
-                    });
+                    let button = egui::Button::new(egui::RichText::new(tab.get_text()).heading())
+                        .fill(if is_selected {
+                            background_colour
+                        } else {
+                            egui::Color32::LIGHT_GRAY
+                        });
 
                     if ui.add_sized([button_width, 30.0], button).clicked() {
                         self.selected_tab = tab;

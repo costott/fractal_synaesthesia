@@ -16,6 +16,12 @@ enum ZoomWindowState {
     Creating(ZoomWindowCreator),
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ZoomWindowInteractState {
+    Inactive { has_history: bool },
+    Creating,
+}
+
 enum ZoomWindowCreatorState {
     Static,
     Resizing,
@@ -229,7 +235,12 @@ impl ZoomWindow {
     ///
     /// # Arguments
     /// `window_rect`: The rectangle the fractal window is contained in on the screen.
-    pub fn update(&mut self, window_rect: Rect, fractal_params: Arc<Mutex<FractalParams>>) -> bool {
+    pub fn update(
+        &mut self,
+        window_rect: Rect,
+        fractal_params: Arc<Mutex<FractalParams>>,
+        interact_state: &mut ZoomWindowInteractState,
+    ) -> bool {
         // Cancelling
         match self.state {
             ZoomWindowState::Inactive => {}
@@ -238,6 +249,13 @@ impl ZoomWindow {
                     self.state = ZoomWindowState::Inactive;
                 }
             }
+        };
+
+        *interact_state = match self.state {
+            ZoomWindowState::Inactive => ZoomWindowInteractState::Inactive {
+                has_history: !self.history.is_empty(),
+            },
+            _ => ZoomWindowInteractState::Creating,
         };
 
         // Updating

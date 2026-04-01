@@ -26,9 +26,15 @@ impl AudioMapperFooter {
                 );
 
                 ui.horizontal_centered(|ui| {
+                    ui.add_space(5.0);
                     if ui.button("Edit fractal").clicked() {
                         return_to_fractal_settings = true;
                     }
+
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                        ui.add_space(5.0);
+                        ui.label("Fractal Synaesthesia");
+                    });
                 });
             });
 
