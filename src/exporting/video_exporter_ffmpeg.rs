@@ -54,7 +54,7 @@ impl FFmpegCmdExporter {
     }
 
     /// Push a single RGB24 frame.
-    /// `rgb` must be exactly width*height*3 bytes.
+    /// `rgb` must be exactly width\*height\*3 bytes.
     pub fn push_frame(&mut self, rgb: &[u8]) -> std::io::Result<()> {
         if rgb.len() != (self.width * self.height * 3) as usize {
             return Err(std::io::Error::new(
@@ -80,5 +80,43 @@ impl FFmpegCmdExporter {
                 "FFmpeg failed",
             ))
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn test_ffmpeg_cmd_exporter() {
+        let output_path = dirs::video_dir()
+            .unwrap_or(PathBuf::from("."))
+            .join("test_ffmpeg_cmd.mp4");
+        let mut exporter = FFmpegCmdExporter::new(2, 2, 1, &output_path).unwrap();
+
+        // Frame 1: Red, Green, Blue, White
+        exporter
+            .push_frame(&[
+                255, 0, 0, // Red
+                0, 255, 0, // Green
+                0, 0, 255, // Blue
+                255, 255, 255, // White
+            ])
+            .unwrap();
+
+        // Frame 2: Cyan, Magenta, Yellow, Black
+        exporter
+            .push_frame(&[
+                0, 255, 255, // Cyan
+                255, 0, 255, // Magenta
+                255, 255, 0, // Yellow
+                0, 0, 0, // Black
+            ])
+            .unwrap();
+
+        let result = exporter.finish();
+        assert!(result.is_ok());
+
+        // delete the test video file after the test
+        std::fs::remove_file(output_path).unwrap();
     }
 }

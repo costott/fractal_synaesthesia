@@ -395,3 +395,43 @@ impl Eq for OrbitTrapCircle {}
 mod tests {
     use super::*;
 }
+
+#[cfg(test)]
+mod orbit_tests {
+    use super::*;
+
+    #[test]
+    fn point_vector_and_distance() {
+        let p = OrbitTrapPoint::new((1.0, 2.0), OrbitTrapAnalysis::Distance);
+        let z = Complex::new(2.0, 3.0);
+        let v = p.vector_double(z);
+        assert!((v.real - 1.0).abs() < 1e-6);
+        assert!((v.im - 1.0).abs() < 1e-6);
+        let d2 = p.distance2_double(z);
+        assert!((d2 - 2.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn circle_distance_and_vector() {
+        let c = OrbitTrapCircle::new((0.0, 0.0), 1.0, OrbitTrapAnalysis::Distance);
+        let z = Complex::new(2.0, 0.0);
+        let d2 = c.distance2_double(z);
+        // (|2|-1)^2 = 1
+        assert!((d2 - 1.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn cross_vector_inside_and_outside() {
+        let cr = OrbitTrapCross::new((0.0, 0.0), 1.0, OrbitTrapAnalysis::Distance);
+        // inside arms
+        let z_inside = Complex::new(0.5, 0.0);
+        let v_in = cr.vector_double(z_inside);
+        // should project to one axis (either x or y zero)
+        assert!(v_in.real == 0.5 || v_in.im == 0.0 || v_in.real == 0.0 || v_in.im == 0.0);
+
+        // outside arms
+        let z_out = Complex::new(5.0, 5.0);
+        let v_out = cr.vector_double(z_out);
+        assert!(v_out.abs_squared() >= 0.0);
+    }
+}

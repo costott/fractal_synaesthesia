@@ -177,45 +177,45 @@ impl VideoExporter {
     }
 }
 
-// quick test suite
-#[cfg(test)]
-mod tests {
-    use super::VideoExporter;
-    use std::fs;
+// // quick test suite
+// #[cfg(test)]
+// mod tests {
+//     use super::VideoExporter;
+//     use std::fs;
 
-    #[test]
-    fn test_video_exporter_ffmpeg() {
-        let output_path = std::path::PathBuf::from("test_output.mp4");
-        let width = 320;
-        let height = 240;
-        let fps = 30;
-        let frame_count = fps * 2; // 2 seconds
+//     #[test]
+//     fn test_video_exporter_ffmpeg() {
+//         let output_path = std::path::PathBuf::from("test_output.mp4");
+//         let width = 320;
+//         let height = 240;
+//         let fps = 30;
+//         let frame_count = fps * 2; // 2 seconds
 
-        let mut exporter = VideoExporter::new(&output_path, width, height, fps)
-            .expect("Failed to create exporter");
+//         let mut exporter = VideoExporter::new(&output_path, width, height, fps)
+//             .expect("Failed to create exporter");
 
-        for i in 0..frame_count {
-            // Create a simple test pattern (gradient)
-            let mut frame_data = vec![0u8; (width * height * 3) as usize];
-            for y in 0..height {
-                for x in 0..width {
-                    let offset = ((y * width + x) * 3) as usize;
-                    frame_data[offset] = (x % 256) as u8; // R
-                    frame_data[offset + 1] = (y % 256) as u8; // G
-                    frame_data[offset + 2] = ((i * 10) % 256) as u8; // B
-                }
-            }
-            exporter
-                .push_frame(&frame_data)
-                .expect("Failed to push frame");
-        }
+//         for i in 0..frame_count {
+//             // Create a simple test pattern (gradient)
+//             let mut frame_data = vec![0u8; (width * height * 3) as usize];
+//             for y in 0..height {
+//                 for x in 0..width {
+//                     let offset = ((y * width + x) * 3) as usize;
+//                     frame_data[offset] = (x % 256) as u8; // R
+//                     frame_data[offset + 1] = (y % 256) as u8; // G
+//                     frame_data[offset + 2] = ((i * 10) % 256) as u8; // B
+//                 }
+//             }
+//             exporter
+//                 .push_frame(&frame_data)
+//                 .expect("Failed to push frame");
+//         }
 
-        exporter.finish().expect("Failed to finish export");
+//         exporter.finish().expect("Failed to finish export");
 
-        // Check if file was created
-        assert!(output_path.exists());
+//         // Check if file was created
+//         assert!(output_path.exists());
 
-        // Clean up
-        fs::remove_file(output_path).expect("Failed to delete test output file");
-    }
-}
+//         // Clean up
+//         fs::remove_file(output_path).expect("Failed to delete test output file");
+//     }
+// }

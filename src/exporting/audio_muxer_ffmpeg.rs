@@ -38,13 +38,17 @@ mod tests {
         let video_path = dirs::video_dir()
             .unwrap_or(PathBuf::from("."))
             .join("test2_noaudio.mp4");
-        let audio_path =
-            PathBuf::from("C:\\Users\\claire\\rust_scripts\\download_song\\push_up.wav");
+        let audio_path = PathBuf::from(
+            "C:\\Users\\claire\\rust_scripts\\download_song\\analyse_aubio\\push_up.wav",
+        );
         let output_path = dirs::video_dir()
             .unwrap_or(PathBuf::from("."))
             .join("test2_audio.mp4");
 
         let result = mux_audio_video(&video_path, &audio_path, &output_path);
         assert!(result.is_ok());
+
+        // delete the test video file after the test
+        std::fs::remove_file(output_path).unwrap();
     }
 }

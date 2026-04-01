@@ -109,7 +109,6 @@ impl<'de> serde::Deserialize<'de> for FractalParams {
 pub struct ReferenceOrbit {
     /// the reference orbit, starting from `0 + 0i`
     pub ref_z: SmallVec<[Complex; 16]>, // store the first 16 points on the stack, the rest on the heap
-    // pub ref_z: Box<[Complex]>,
     /// the iteration just before the referencre orbit diverged
     pub max_ref_iteration: usize,
 }
@@ -117,10 +116,10 @@ impl ReferenceOrbit {
     pub fn new(fractal_params: Arc<Mutex<FractalParams>>, max_bailout2: f64) -> ReferenceOrbit {
         let params = fractal_params.lock().unwrap();
 
-        // let mut ref_z: Vec<Complex> = Vec::with_capacity(params.max_iterations as usize);
         let mut ref_z = SmallVec::with_capacity(params.max_iterations as usize);
         let mut max_ref_iteration = 0;
 
+        // Perform the mandelbrot iteration formula using big floats
         let mut z = BigComplex::from_f64s(0., 0.);
         for i in 0..params.max_iterations {
             ref_z.push(z.as_complex());
@@ -178,6 +177,8 @@ impl ReferenceOrbit {
 /// * `fractal` - The fractal algorithm to use.
 /// * `dc` - A [`Complex`] number representing the vector between the
 /// reference orbit point (centre of screen) and the pixel to analyse.
+/// * `reference_orbit` - The reference orbit to use for perturbation.
+/// * `max_iterations` - The maximum number of iterations to run before assuming the point is in the set.
 /// * `implementations` - The list of layering algorithms to run while analysing this pixel.
 pub fn analyse_pixel(
     fractal: &Arc<Fractal>,

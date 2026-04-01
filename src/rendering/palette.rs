@@ -438,3 +438,44 @@ impl crate::ui::Dropdown<PaletteMappingType> for PaletteMappingType {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn colourmap_even_and_get() {
+        let cm = ColourMap::new_even(vec![BLACK, WHITE]);
+        let mid = cm.get_colour_at_percentage(0.5);
+        assert!((mid.r - 0.5).abs() < 1e-6);
+        assert!((mid.g - 0.5).abs() < 1e-6);
+        assert!((mid.b - 0.5).abs() < 1e-6);
+    }
+
+    #[test]
+    fn palette_length_offset_and_blend() {
+        let mut p = Palette::new_even(vec![BLACK, WHITE], PaletteMappingType::Constant, 1.0, 0.0);
+        // setting same length returns false
+        assert!(!p.set_length(1.0));
+        // change length
+        assert!(p.set_length(0.5));
+        // offset add and wrap
+        p.set_offset(0.75);
+        p.add_offset(0.5);
+        assert!(p.get_offset() < 1.0);
+
+        // generate palette cache and get colour at layer output
+        p.generate_palette(10.0);
+        let c = p.get_colour_at_layer_output(2.3);
+        // within valid range
+        assert!(c.r >= 0.0 && c.r <= 1.0);
+    }
+
+    #[test]
+    fn blend_colours_basic() {
+        let bg = Colour::new(1.0, 0.0, 0.0, 1.0);
+        let fg = Colour::new(0.0, 0.0, 1.0, 0.5);
+        let out = blend_colours(bg, fg, 1.0);
+        assert!((out.a - 1.0).abs() < 1e-6);
+    }
+}
