@@ -47,7 +47,7 @@ impl Default for LayerManager {
         Self::new(
             vec![
                 Layer::new(
-                    LayerAlgorithmKind::Colour,
+                    LayerAlgorithmKind::Colour { bailout2: crate::rendering::algorithms::layer_algorithms::ColourAlgorithm::DEFAULT_BAILOUT2 },
                     LayerRange::OutSet,
                     1.0,
                     Palette::new_even(
@@ -59,6 +59,7 @@ impl Default for LayerManager {
                 ),
                 Layer::new(
                     LayerAlgorithmKind::Shading3D {
+                        bailout2: crate::rendering::algorithms::layer_algorithms::Shading3DAlgorithm::DEFAULT_BAILOUT2,
                         h2: 1.5,
                         angle: 45.0,
                     },
@@ -68,6 +69,7 @@ impl Default for LayerManager {
                 ),
                 Layer::new(
                     LayerAlgorithmKind::OrbitTrap {
+                        bailout2: crate::rendering::algorithms::layer_algorithms::OrbitTrapAlgorithm::DEFAULT_BAILOUT2,
                         trap: OrbitTrapType::Point(OrbitTrapPoint::new(
                             (0.0, 0.0),
                             OrbitTrapAnalysis::Angle,

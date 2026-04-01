@@ -7,18 +7,18 @@ use crate::{
     },
     types::ComplexNumber,
     ui::{
-        menus::fractal_settings::layers_editor::palette_editor::PaletteEditor,
-        window::WindowParams,
+        menus::fractal_settings::layers_editor::palette_editor::PaletteEditor, window::WindowParams,
     },
 };
 
 pub struct LayerSettings {
     params: WindowParams,
 
+    /// Whether to update the local specifics copy on the next update. This is set to true when the layer algorithm changes, and set to false when the local specifics copy is updated.
     pub update_locals: bool,
 
     palette_texture: Option<egui::TextureHandle>,
-    local_specifics_copy: Option<LocalSpecificsCopy>,
+    local_copy: Option<LocalCopy>,
 
     palette_editor: PaletteEditor,
 }
@@ -28,7 +28,7 @@ impl LayerSettings {
             params,
             update_locals: true,
             palette_texture: None,
-            local_specifics_copy: None,
+            local_copy: None,
             palette_editor: PaletteEditor::new(params),
         }
     }
@@ -47,14 +47,18 @@ impl LayerSettings {
         selected_layer: usize,
     ) -> bool {
         if self.palette_editor.is_open() {
-            return self.palette_editor.update(egui_ctx, project, ctx);
+            let palette_changed = self.palette_editor.update(egui_ctx, project, ctx);
+            if palette_changed {
+                self.palette_texture = None;
+            }
+            return palette_changed;
         }
 
         let layer = &mut project.fractal_settings.layers.lock().unwrap().layers[selected_layer];
         let mut layer_changed = false;
 
         if self.update_locals {
-            self.local_specifics_copy = LocalSpecificsCopy::copy_from_algoritm(&layer.algorithm);
+            self.local_copy = Some(LocalCopy::copy_from_algorithm(&layer.algorithm));
             self.update_locals = false;
             self.palette_texture = None;
         }
@@ -70,10 +74,12 @@ impl LayerSettings {
         }
 
         self.params.sized_area("layer_settings", egui_ctx, |ui| {
-            ui.label(egui::RichText::new(layer.name.clone()).heading());
+            ui.add_space(10.0);
+            ui.label(egui::RichText::new(layer.name.clone()).heading().strong());
             egui::Grid::new("layer_settings_grid")
                 .num_columns(2)
                 .show(ui, |ui| {
+                    // Formula
                     ui.label(
                         egui::RichText::new("Formula")
                             .font(egui::FontId::proportional(crate::ui::NORMAL_TEXT_SIZE)),
@@ -86,6 +92,7 @@ impl LayerSettings {
 
                     ui.end_row();
 
+                    // Palette
                     ui.label(
                         egui::RichText::new("Palette")
                             .font(egui::FontId::proportional(crate::ui::NORMAL_TEXT_SIZE)),
@@ -101,6 +108,7 @@ impl LayerSettings {
 
                     ui.end_row();
 
+                    // Application range
                     ui.label(
                         egui::RichText::new("Application range")
                             .font(egui::FontId::proportional(crate::ui::NORMAL_TEXT_SIZE)),
@@ -122,40 +130,56 @@ impl LayerSettings {
             egui::Grid::new("specific_layer_settings_grid")
                 .num_columns(2)
                 .show(ui, |ui| match &mut layer.algorithm {
-                    LayerAlgorithmKind::Colour => {}
-                    LayerAlgorithmKind::OrbitTrap { trap } => {
+                    LayerAlgorithmKind::Colour { bailout2 } => {
+                        layer_changed |= LayerSettings::colour_settings(
+                            ui,
+                            ctx.rendering,
+                            bailout2,
+                            &mut self.local_copy,
+                        );
+                    }
+                    LayerAlgorithmKind::OrbitTrap { bailout2, trap } => {
                         layer_changed |= LayerSettings::orbit_trap_settings(
                             ui,
                             ctx.rendering,
+                            bailout2,
                             trap,
                             &mut self.update_locals,
-                            &mut self.local_specifics_copy,
+                            &mut self.local_copy,
                         )
                     }
-                    LayerAlgorithmKind::Shading3D { h2, angle } => {
+                    LayerAlgorithmKind::Shading3D {
+                        bailout2,
+                        h2,
+                        angle,
+                    } => {
                         layer_changed |= LayerSettings::shading3d_settings(
                             ui,
                             ctx.rendering,
+                            bailout2,
                             h2,
                             angle,
-                            &mut self.local_specifics_copy,
+                            &mut self.local_copy,
                         );
                     }
-                    LayerAlgorithmKind::TriangleInequality { apower } => {
+                    LayerAlgorithmKind::TriangleInequality { bailout2, apower } => {
                         layer_changed |= LayerSettings::triangle_inequality_settings(
                             ui,
                             ctx.rendering,
+                            bailout2,
                             apower,
-                            &mut self.local_specifics_copy,
+                            &mut self.local_copy,
                         );
                     }
                     LayerAlgorithmKind::StripeAverage {
+                        bailout2,
                         skip_iteration,
                         stripe_density,
                     } => {
                         layer_changed |= LayerSettings::stripe_average_settings(
                             ui,
                             ctx.rendering,
+                            bailout2,
                             skip_iteration,
                             stripe_density,
                             project
@@ -164,7 +188,7 @@ impl LayerSettings {
                                 .lock()
                                 .unwrap()
                                 .max_iterations,
-                            &mut self.local_specifics_copy,
+                            &mut self.local_copy,
                         );
                     }
                 });
@@ -173,12 +197,43 @@ impl LayerSettings {
         layer_changed
     }
 
+    fn colour_settings(
+        ui: &mut egui::Ui,
+        ctx_rendering: bool,
+        bailout2: &mut f64,
+        local_copy: &mut Option<LocalCopy>,
+    ) -> bool {
+        let mut layers_changed = false;
+
+        ui.label(egui::RichText::new("Colour Settings").heading());
+        ui.end_row();
+
+        if let Some(local) = local_copy.as_mut() {
+            let bailout2_str = bailout2.sqrt().to_string();
+            layers_changed |= crate::ui::text_param(
+                ui,
+                "Bailout",
+                &mut local.bailout2,
+                ctx_rendering,
+                || bailout2_str.clone(),
+                |new| {
+                    if let Ok(val) = new.parse::<f64>() {
+                        *bailout2 = val * val;
+                    }
+                },
+            );
+        }
+
+        layers_changed
+    }
+
     fn orbit_trap_settings(
         ui: &mut egui::Ui,
         ctx_rendering: bool,
+        bailout2: &mut f64,
         trap: &mut OrbitTrapType,
         update_locals: &mut bool,
-        local_specifics_copy: &mut Option<LocalSpecificsCopy>,
+        local_copy: &mut Option<LocalCopy>,
     ) -> bool {
         let mut layers_changed = false;
 
@@ -210,16 +265,20 @@ impl LayerSettings {
 
         match trap {
             OrbitTrapType::Point(point) => {
-                if let Some(LocalSpecificsCopy::OrbitTrap(LocalOrbitTrapCopy::Point {
-                    center_re,
-                    center_im,
-                })) = local_specifics_copy.as_mut()
+                if let Some(LocalCopy {
+                    bailout2: _,
+                    specifics:
+                        Some(LocalSpecificsCopy::OrbitTrap(LocalOrbitTrapCopy::Point {
+                            center_re: local_center_re,
+                            center_im: local_center_im,
+                        })),
+                }) = local_copy.as_mut()
                 {
                     let centre_real = point.center.real.to_string();
                     layers_changed |= crate::ui::text_param(
                         ui,
                         "Center (Re)",
-                        center_re,
+                        local_center_re,
                         ctx_rendering,
                         || centre_real.clone(),
                         |new| point.center.update_real_from_string(new),
@@ -229,7 +288,7 @@ impl LayerSettings {
                     layers_changed |= crate::ui::text_param(
                         ui,
                         "Center (Im)",
-                        center_im,
+                        local_center_im,
                         ctx_rendering,
                         || centre_im.clone(),
                         |new| point.center.update_im_from_string(new),
@@ -237,17 +296,21 @@ impl LayerSettings {
                 }
             }
             OrbitTrapType::Cross(cross) => {
-                if let Some(LocalSpecificsCopy::OrbitTrap(LocalOrbitTrapCopy::Cross {
-                    center_re,
-                    center_im,
-                    arm_length,
-                })) = local_specifics_copy.as_mut()
+                if let Some(LocalCopy {
+                    bailout2: _,
+                    specifics:
+                        Some(LocalSpecificsCopy::OrbitTrap(LocalOrbitTrapCopy::Cross {
+                            center_re: local_center_re,
+                            center_im: local_center_im,
+                            arm_length: local_arm_length,
+                        })),
+                }) = local_copy.as_mut()
                 {
                     let centre_real = cross.center.real.to_string();
                     layers_changed |= crate::ui::text_param(
                         ui,
                         "Center (Re)",
-                        center_re,
+                        local_center_re,
                         ctx_rendering,
                         || centre_real.clone(),
                         |new| cross.center.update_real_from_string(new),
@@ -257,7 +320,7 @@ impl LayerSettings {
                     layers_changed |= crate::ui::text_param(
                         ui,
                         "Center (Im)",
-                        center_im,
+                        local_center_im,
                         ctx_rendering,
                         || centre_im.clone(),
                         |new| cross.center.update_im_from_string(new),
@@ -267,7 +330,7 @@ impl LayerSettings {
                     layers_changed |= crate::ui::text_param(
                         ui,
                         "Arm length",
-                        arm_length,
+                        local_arm_length,
                         ctx_rendering,
                         || arm.clone(),
                         |new| {
@@ -279,17 +342,21 @@ impl LayerSettings {
                 }
             }
             OrbitTrapType::Circle(circle) => {
-                if let Some(LocalSpecificsCopy::OrbitTrap(LocalOrbitTrapCopy::Circle {
-                    center_re,
-                    center_im,
-                    radius,
-                })) = local_specifics_copy.as_mut()
+                if let Some(LocalCopy {
+                    bailout2: _,
+                    specifics:
+                        Some(LocalSpecificsCopy::OrbitTrap(LocalOrbitTrapCopy::Circle {
+                            center_re: local_center_re,
+                            center_im: local_center_im,
+                            radius: local_radius,
+                        })),
+                }) = local_copy.as_mut()
                 {
                     let centre_real = circle.center.real.to_string();
                     layers_changed |= crate::ui::text_param(
                         ui,
                         "Center (Re)",
-                        center_re,
+                        local_center_re,
                         ctx_rendering,
                         || centre_real.clone(),
                         |new| circle.center.update_real_from_string(new),
@@ -299,7 +366,7 @@ impl LayerSettings {
                     layers_changed |= crate::ui::text_param(
                         ui,
                         "Center (Im)",
-                        center_im,
+                        local_center_im,
                         ctx_rendering,
                         || centre_im.clone(),
                         |new| circle.center.update_im_from_string(new),
@@ -309,7 +376,7 @@ impl LayerSettings {
                     layers_changed |= crate::ui::text_param(
                         ui,
                         "Radius",
-                        radius,
+                        local_radius,
                         ctx_rendering,
                         || c_radius.clone(),
                         |new| {
@@ -322,25 +389,51 @@ impl LayerSettings {
             }
         };
 
+        // edit bailout
+        if let Some(LocalCopy {
+            bailout2: local_bailout2,
+            specifics: _,
+        }) = local_copy.as_mut()
+        {
+            let bailout2_str = bailout2.sqrt().to_string();
+            layers_changed |= crate::ui::text_param(
+                ui,
+                "Bailout",
+                local_bailout2,
+                ctx_rendering,
+                || bailout2_str.clone(),
+                |new| {
+                    if let Ok(val) = new.parse::<f64>() {
+                        *bailout2 = val * val;
+                    }
+                },
+            );
+        }
+
         layers_changed
     }
 
     fn shading3d_settings(
         ui: &mut egui::Ui,
         ctx_rendering: bool,
+        bailout2: &mut f64,
         h2: &mut f64,
         angle: &mut f64,
-        local_specifics_copy: &mut Option<LocalSpecificsCopy>,
+        local_copy: &mut Option<LocalCopy>,
     ) -> bool {
         let mut layers_changed = false;
 
         ui.label(egui::RichText::new("Shading 3D Settings").heading());
         ui.end_row();
 
-        if let Some(LocalSpecificsCopy::Shading3D {
-            h2: local_h2,
-            angle: _,
-        }) = local_specifics_copy.as_mut()
+        if let Some(LocalCopy {
+            bailout2: local_bailout2,
+            specifics:
+                Some(LocalSpecificsCopy::Shading3D {
+                    h2: local_h2,
+                    angle: _,
+                }),
+        }) = local_copy.as_mut()
         {
             let curr_h2 = h2.to_string();
             layers_changed |= crate::ui::text_param(
@@ -367,6 +460,20 @@ impl LayerSettings {
             }
 
             ui.end_row();
+
+            let bailout2_str = bailout2.sqrt().to_string();
+            layers_changed |= crate::ui::text_param(
+                ui,
+                "Bailout",
+                local_bailout2,
+                ctx_rendering,
+                || bailout2_str.clone(),
+                |new| {
+                    if let Ok(val) = new.parse::<f64>() {
+                        *bailout2 = val * val;
+                    }
+                },
+            );
         }
 
         layers_changed
@@ -375,17 +482,22 @@ impl LayerSettings {
     fn triangle_inequality_settings(
         ui: &mut egui::Ui,
         ctx_rendering: bool,
+        bailout2: &mut f64,
         apower: &mut f64,
-        local_specifics_copy: &mut Option<LocalSpecificsCopy>,
+        local_copy: &mut Option<LocalCopy>,
     ) -> bool {
         let mut layers_changed = false;
 
         ui.label(egui::RichText::new("Triangle Inequality Settings").heading());
         ui.end_row();
 
-        if let Some(LocalSpecificsCopy::TriangleInequality {
-            apower: local_apower,
-        }) = local_specifics_copy.as_mut()
+        if let Some(LocalCopy {
+            bailout2: local_bailout2,
+            specifics:
+                Some(LocalSpecificsCopy::TriangleInequality {
+                    apower: local_apower,
+                }),
+        }) = local_copy.as_mut()
         {
             let curr_apower = apower.to_string();
             layers_changed |= crate::ui::text_param(
@@ -400,6 +512,22 @@ impl LayerSettings {
                     }
                 },
             );
+
+            ui.end_row();
+
+            let bailout2_str = bailout2.sqrt().to_string();
+            layers_changed |= crate::ui::text_param(
+                ui,
+                "Bailout",
+                local_bailout2,
+                ctx_rendering,
+                || bailout2_str.clone(),
+                |new| {
+                    if let Ok(val) = new.parse::<f64>() {
+                        *bailout2 = val * val;
+                    }
+                },
+            );
         }
 
         layers_changed
@@ -408,20 +536,25 @@ impl LayerSettings {
     fn stripe_average_settings(
         ui: &mut egui::Ui,
         ctx_rendering: bool,
+        bailout2: &mut f64,
         skip_iteration: &mut u32,
         stripe_density: &mut f64,
         max_iterations: u32,
-        local_specifics_copy: &mut Option<LocalSpecificsCopy>,
+        local_copy: &mut Option<LocalCopy>,
     ) -> bool {
         let mut layers_changed = false;
 
         ui.label(egui::RichText::new("Stripe Average Settings").heading());
         ui.end_row();
 
-        if let Some(LocalSpecificsCopy::StripeAverage {
-            skip_iteration: _,
-            stripe_density: local_stripe_density,
-        }) = local_specifics_copy.as_mut()
+        if let Some(LocalCopy {
+            bailout2: local_bailout2,
+            specifics:
+                Some(LocalSpecificsCopy::StripeAverage {
+                    skip_iteration: _,
+                    stripe_density: _,
+                }),
+        }) = local_copy.as_mut()
         {
             ui.label(
                 egui::RichText::new("Skip iteration")
@@ -435,16 +568,32 @@ impl LayerSettings {
 
             ui.end_row();
 
-            let curr_density = stripe_density.to_string();
+            ui.label(
+                egui::RichText::new("Stripe Density")
+                    .font(egui::FontId::proportional(crate::ui::NORMAL_TEXT_SIZE)),
+            );
+
+            let response = ui.add(
+                egui::DragValue::new(stripe_density)
+                    .speed(1.0)
+                    .range(0.0..=max_iterations as f64 - 1.0),
+            );
+            if response.changed() {
+                layers_changed = true;
+            }
+
+            ui.end_row();
+
+            let bailout2_str = bailout2.sqrt().to_string();
             layers_changed |= crate::ui::text_param(
                 ui,
-                "Sripe Density",
-                local_stripe_density,
+                "Bailout",
+                local_bailout2,
                 ctx_rendering,
-                || curr_density.clone(),
+                || bailout2_str.clone(),
                 |new| {
                     if let Ok(val) = new.parse::<f64>() {
-                        *stripe_density = val;
+                        *bailout2 = val * val;
                     }
                 },
             );
@@ -454,7 +603,30 @@ impl LayerSettings {
     }
 }
 
+struct LocalCopy {
+    bailout2: String,
+    specifics: Option<LocalSpecificsCopy>,
+}
+impl LocalCopy {
+    fn copy_from_algorithm(algorithm: &LayerAlgorithmKind) -> Self {
+        let bailout2 = match algorithm {
+            LayerAlgorithmKind::Colour { bailout2 } => *bailout2,
+            LayerAlgorithmKind::OrbitTrap { bailout2, .. } => *bailout2,
+            LayerAlgorithmKind::Shading3D { bailout2, .. } => *bailout2,
+            LayerAlgorithmKind::TriangleInequality { bailout2, .. } => *bailout2,
+            LayerAlgorithmKind::StripeAverage { bailout2, .. } => *bailout2,
+        }
+        .to_string();
+
+        Self {
+            bailout2,
+            specifics: LocalSpecificsCopy::copy_from_algorithm(algorithm),
+        }
+    }
+}
+
 enum LocalSpecificsCopy {
+    Colour,
     OrbitTrap(LocalOrbitTrapCopy),
     Shading3D {
         h2: String,
@@ -469,22 +641,25 @@ enum LocalSpecificsCopy {
     },
 }
 impl LocalSpecificsCopy {
-    fn copy_from_algoritm(algorithm: &LayerAlgorithmKind) -> Option<Self> {
+    fn copy_from_algorithm(algorithm: &LayerAlgorithmKind) -> Option<Self> {
         match algorithm {
-            LayerAlgorithmKind::Colour => None,
-            LayerAlgorithmKind::OrbitTrap { trap } => {
+            LayerAlgorithmKind::Colour { .. } => None,
+            LayerAlgorithmKind::OrbitTrap { trap, .. } => {
                 Some(Self::OrbitTrap(LocalOrbitTrapCopy::copy_from_trap(trap)))
             }
-            LayerAlgorithmKind::Shading3D { h2, angle } => Some(Self::Shading3D {
+            LayerAlgorithmKind::Shading3D { h2, angle, .. } => Some(Self::Shading3D {
                 h2: h2.to_string(),
                 angle: angle.to_string(),
             }),
-            LayerAlgorithmKind::TriangleInequality { apower } => Some(Self::TriangleInequality {
-                apower: apower.to_string(),
-            }),
+            LayerAlgorithmKind::TriangleInequality { apower, .. } => {
+                Some(Self::TriangleInequality {
+                    apower: apower.to_string(),
+                })
+            }
             LayerAlgorithmKind::StripeAverage {
                 skip_iteration,
                 stripe_density,
+                ..
             } => Some(Self::StripeAverage {
                 skip_iteration: skip_iteration.to_string(),
                 stripe_density: stripe_density.to_string(),

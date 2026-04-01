@@ -73,7 +73,9 @@ impl Layer {
 impl Default for Layer {
     fn default() -> Self {
         Self::new(
-            LayerAlgorithmKind::Colour,
+            LayerAlgorithmKind::Colour {
+                bailout2: ColourAlgorithm::DEFAULT_BAILOUT2,
+            },
             LayerRange::OutSet,
             0.,
             Palette::default(),
@@ -84,18 +86,24 @@ impl Default for Layer {
 /// The algorithm the layer uses.
 #[derive(Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum LayerAlgorithmKind {
-    Colour,
+    Colour {
+        bailout2: f64,
+    },
     OrbitTrap {
+        bailout2: f64,
         trap: OrbitTrapType,
     },
     Shading3D {
+        bailout2: f64,
         h2: f64,
         angle: f64,
     },
     TriangleInequality {
+        bailout2: f64,
         apower: f64,
     },
     StripeAverage {
+        bailout2: f64,
         skip_iteration: u32,
         stripe_density: f64,
     },
@@ -103,22 +111,30 @@ pub enum LayerAlgorithmKind {
 impl LayerAlgorithmKind {
     pub fn get_new_implementation(&self) -> LayerImplementation {
         match self {
-            Self::Colour => LayerImplementation::Colour(ColourAlgorithm::new()),
-            Self::OrbitTrap { trap, .. } => {
-                LayerImplementation::OrbitTrap(OrbitTrapAlgorithm::new((*trap).clone()))
+            Self::Colour { bailout2 } => {
+                LayerImplementation::Colour(ColourAlgorithm::new(*bailout2))
             }
-            Self::Shading3D { h2, angle } => {
-                LayerImplementation::Shading3D(Shading3DAlgorithm::new(*h2, *angle))
+            Self::OrbitTrap { bailout2, trap } => {
+                LayerImplementation::OrbitTrap(OrbitTrapAlgorithm::new((*trap).clone(), *bailout2))
             }
-            Self::TriangleInequality { apower } => {
-                LayerImplementation::TriangleInequality(TriangleInequalityAlgorithm::new(*apower))
+            Self::Shading3D {
+                bailout2,
+                h2,
+                angle,
+            } => LayerImplementation::Shading3D(Shading3DAlgorithm::new(*h2, *angle, *bailout2)),
+            Self::TriangleInequality { bailout2, apower } => {
+                LayerImplementation::TriangleInequality(TriangleInequalityAlgorithm::new(
+                    *apower, *bailout2,
+                ))
             }
             Self::StripeAverage {
+                bailout2,
                 skip_iteration,
                 stripe_density,
             } => LayerImplementation::StripeAverage(StripeAverageAlgorithm::new(
                 *skip_iteration,
                 *stripe_density,
+                *bailout2,
             )),
         }
     }
@@ -133,18 +149,24 @@ impl LayerAlgorithmKind {
 impl crate::ui::Dropdown<LayerAlgorithmKind> for LayerAlgorithmKind {
     fn get_variants() -> Vec<LayerAlgorithmKind> {
         vec![
-            Self::Colour,
+            Self::Colour {
+                bailout2: ColourAlgorithm::DEFAULT_BAILOUT2,
+            },
             Self::OrbitTrap {
+                bailout2: OrbitTrapAlgorithm::DEFAULT_BAILOUT2,
                 trap: OrbitTrapType::default(),
             },
             Self::Shading3D {
+                bailout2: Shading3DAlgorithm::DEFAULT_BAILOUT2,
                 h2: Shading3DAlgorithm::DEFAULT_H2,
                 angle: Shading3DAlgorithm::DEFAULT_ANGLE,
             },
             Self::TriangleInequality {
+                bailout2: TriangleInequalityAlgorithm::DEFAULT_BAILOUT2,
                 apower: TriangleInequalityAlgorithm::DEFAULT_APOWER,
             },
             Self::StripeAverage {
+                bailout2: StripeAverageAlgorithm::DEFAULT_BAILOUT2,
                 skip_iteration: StripeAverageAlgorithm::DEFAULT_SKIP_ITERATION,
                 stripe_density: StripeAverageAlgorithm::DEFAULT_STRIPE_DENSITY,
             },
@@ -153,14 +175,11 @@ impl crate::ui::Dropdown<LayerAlgorithmKind> for LayerAlgorithmKind {
 
     fn get_text(&self) -> &str {
         match self {
-            Self::Colour => "Colour",
-            Self::OrbitTrap { trap: _ } => "Orbit Trap",
-            Self::Shading3D { h2: _, angle: _ } => "Shading3D",
-            Self::TriangleInequality { apower: _ } => "Triangle Inequality",
-            Self::StripeAverage {
-                skip_iteration: _,
-                stripe_density: _,
-            } => "Stripe Average",
+            Self::Colour { .. } => "Colour",
+            Self::OrbitTrap { .. } => "Orbit Trap",
+            Self::Shading3D { .. } => "Shading3D",
+            Self::TriangleInequality { .. } => "Triangle Inequality",
+            Self::StripeAverage { .. } => "Stripe Average",
         }
     }
 }

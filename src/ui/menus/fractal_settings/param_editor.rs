@@ -30,6 +30,7 @@ impl FractalSettingsWindow for ParamEditor {
         self.params.sized_area("params", egui_ctx, |ui| {
             egui::Grid::new("parameters_grid")
                 .num_columns(2)
+                .min_row_height(30.0)
                 .show(ui, |ui| {
                     needs_render |= crate::ui::text_param(
                         ui,
