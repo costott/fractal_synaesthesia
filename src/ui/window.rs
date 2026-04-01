@@ -33,3 +33,47 @@ impl WindowParams {
             });
     }
 }
+
+/// Minimize the native application window (best-effort). On Windows this
+/// triggers the OS minimize; on other platforms this is a no-op.
+pub fn minimize_app() {
+    #[cfg(windows)]
+    {
+        use windows::Win32::UI::WindowsAndMessaging::{
+            GetForegroundWindow, SW_MINIMIZE, ShowWindow,
+        };
+
+        unsafe {
+            let hwnd = GetForegroundWindow();
+            let _ = ShowWindow(hwnd, SW_MINIMIZE);
+        }
+    }
+
+    #[cfg(not(windows))]
+    {
+        // No portable API available here; do nothing.
+    }
+}
+
+/// Close the native application window (best-effort). On Windows this posts
+/// a WM_CLOSE to the foreground window; on other platforms we fall back to
+/// exiting the process.
+pub fn close_app() {
+    #[cfg(windows)]
+    {
+        use windows::Win32::Foundation::{LPARAM, WPARAM};
+        use windows::Win32::UI::WindowsAndMessaging::{
+            GetForegroundWindow, PostMessageW, WM_CLOSE,
+        };
+
+        unsafe {
+            let hwnd = GetForegroundWindow();
+            let _ = PostMessageW(hwnd, WM_CLOSE, WPARAM(0), LPARAM(0));
+        }
+    }
+
+    #[cfg(not(windows))]
+    {
+        std::process::exit(0);
+    }
+}
