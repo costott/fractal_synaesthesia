@@ -170,6 +170,7 @@ where
 /// * `label`: The text label to display beside the input box.
 /// * `local_value` A mutable reference to the locally cached string representation
 ///   of the parameter. This value is edited directly by the user.
+/// * `ctx_rendering`: A boolean indicating whether the rendering context is currently active.
 /// * `get_value`: A closure returning the current string representation of the
 ///   external parameter, used to refresh `local_value` when the text field is not focused.
 /// * `set_value`: — closure that takes the newly entered string and applies it

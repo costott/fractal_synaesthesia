@@ -155,3 +155,53 @@ impl From<Colour> for egui::Rgba {
         )
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_to_rgba_u8() {
+        let c = Colour::new(1.0, 0.5, 0.0, 0.25);
+        let (r, g, b, a) = c.to_rgba_u8();
+        assert_eq!(r, 255);
+        assert_eq!(g, 127);
+        assert_eq!(b, 0);
+        assert_eq!(a, 63);
+    }
+
+    #[test]
+    fn test_interpolate_and_with_alpha() {
+        let a = Colour::new(0.0, 0.0, 0.0, 1.0);
+        let b = Colour::new(1.0, 1.0, 1.0, 1.0);
+        let mid = a.interpolate(&b, 0.5);
+        assert!((mid.r - 0.5).abs() < 1e-6);
+        assert!((mid.g - 0.5).abs() < 1e-6);
+        assert!((mid.b - 0.5).abs() < 1e-6);
+
+        let with_alpha = mid.with_alpha(0.25);
+        assert!((with_alpha.a - 0.25).abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_alpha_blend() {
+        let bg = Colour::new(1.0, 0.0, 0.0, 1.0);
+        let fg = Colour::new(0.0, 0.0, 1.0, 0.5);
+        let out = bg.alpha_blend(&fg);
+        // out alpha = 0.5 + 1 * (1 - 0.5) = 1.0
+        assert!((out.a - 1.0).abs() < 1e-6);
+        assert!((out.r - 0.5).abs() < 1e-6);
+        assert!((out.b - 0.5).abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_egui_roundtrip() {
+        let c = Colour::new(0.2, 0.4, 0.6, 0.8);
+        let rgba: egui::Rgba = c.into();
+        let back: Colour = rgba.into();
+        assert!((back.r - c.r).abs() < 1e-6);
+        assert!((back.g - c.g).abs() < 1e-6);
+        assert!((back.b - c.b).abs() < 1e-6);
+        assert!((back.a - c.a).abs() < 1e-6);
+    }
+}

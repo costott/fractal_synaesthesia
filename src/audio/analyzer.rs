@@ -438,6 +438,7 @@ impl Analyzer {
         Ok((spectrum_buf, centroid_hz, spectral_spread))
     }
 
+    /// Computes the spectral flux by comparing the current normalized spectrum with the previous one.
     fn compute_spectral_flux(norm: &[f32], prev_norm: &mut [f32]) -> f32 {
         if norm.is_empty() || prev_norm.len() != norm.len() {
             if prev_norm.len() == norm.len() {
@@ -457,6 +458,7 @@ impl Analyzer {
         flux_sum / norm.len() as f32
     }
 
+    /// Computes the spectral flatness by comparing the geometric mean to the arithmetic mean of the spectrum magnitudes.
     fn compute_spectral_flatness(norm: &[f32]) -> f32 {
         if norm.is_empty() {
             return 0.0;
@@ -478,6 +480,7 @@ impl Analyzer {
         }
     }
 
+    /// Computes the average energy in low, mid, and high frequency bands based on the normalized spectrum.
     fn compute_band_energies(norm: &[f32], sample_rate: u32, fft_win: usize) -> (f32, f32, f32) {
         if norm.is_empty() {
             return (0.0, 0.0, 0.0);
@@ -656,6 +659,7 @@ pub enum FeatureType {
 }
 
 /// Features computed at the hop size level (e.g. 10ms) that capture low-level audio characteristics.
+#[derive(Clone, Debug)]
 struct LowGranularityFeatures {
     pub timestamp: f32,
     pub pitch: f32,
@@ -673,6 +677,7 @@ struct LowGranularityFeatures {
 }
 
 /// Features computed over mid-level windows (e.g. 3 seconds) that can be used to derive arousal and valence metrics.
+#[derive(Clone, Debug)]
 struct MidGranularityFeatures {
     pub timestamp: f32,
     pub standard_deviation_energy: f32,
@@ -885,5 +890,155 @@ impl SongFeatures {
             .iter()
             .map(|ff| ff.get_feature(feature_type))
             .fold(f32::MIN, f32::max)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_duration_and_timestamps() {
+        let mut a = Analyzer::new(512);
+        a.sample_rate = 48000;
+        a.samples = vec![0.0_f32; 48000 * 2]; // 2 seconds
+
+        assert_eq!(a.duration(), 2.0);
+        assert_eq!(a.get_hop(), 512);
+        // timestamp for frame index 1
+        let ts = a.calculate_timestamp(1);
+        assert_eq!(ts, (1 * 512) as f32 / 48000.0_f32);
+    }
+
+    #[test]
+    fn test_calculate_durations() {
+        let mut a = Analyzer::new(256);
+        a.sample_rate = 44100;
+        let (hop_ms, frame_ms) = a.calculate_durations(1024);
+        let expected_hop = (256.0 / 44100.0) * 1000.0;
+        let expected_frame = (1024.0 / 44100.0) * 1000.0;
+        let eps = 1e-6;
+        assert!((hop_ms - expected_hop).abs() < eps);
+        assert!((frame_ms - expected_frame).abs() < eps);
+    }
+
+    #[test]
+    fn test_spectral_flatness_and_flux_and_band_energies() {
+        // simple synthetic spectrum
+        let mut norm = vec![0.1_f32, 0.2, 0.3, 0.4, 0.5];
+        let mut prev = vec![0.0_f32; norm.len()];
+
+        // spectral flatness should be non-negative
+        let flat = Analyzer::compute_spectral_flatness(&norm);
+        assert!(flat >= 0.0);
+
+        // spectral flux compares to prev (initially zeros)
+        let flux = Analyzer::compute_spectral_flux(&norm, &mut prev);
+        assert!(flux > 0.0);
+
+        // second call with same spectrum yields zero flux
+        let flux2 = Analyzer::compute_spectral_flux(&norm, &mut prev);
+        assert_eq!(flux2, 0.0);
+
+        // band energies: choose sample_rate and fft_win so bin mapping is clear
+        let (bass, mid, high) = Analyzer::compute_band_energies(&norm, 44100, 10);
+        // energies are finite numbers and non-negative
+        assert!(bass >= 0.0 && mid >= 0.0 && high >= 0.0);
+    }
+
+    #[test]
+    fn test_median_and_mid_window_stats() {
+        let mut values = vec![3.0_f32, 1.0, 4.0, 2.0];
+        let med = Analyzer::median(&mut values);
+        assert_eq!(med, 2.5);
+
+        // prepare an analyzer and a window for mid stats
+        let mut a = Analyzer::new(2);
+        a.sample_rate = 4; // small sample rate to keep window sizes small
+
+        // create a window with 8 samples (4 hop-sized chunks)
+        a.hop_size = 2;
+        let window = vec![0.1_f32, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8];
+        let stats = a.compute_mid_window_stats(&window).unwrap();
+        // unpack tuple
+        let (std_dev, median_energy, median_spread) = stats;
+        assert!(std_dev >= 0.0);
+        assert!(median_energy >= 0.0);
+        assert!(median_spread >= 0.0);
+    }
+
+    #[test]
+    fn test_songfeatures_and_interpolation() {
+        // build low-granularity features (timestamps every 1s)
+        let low = vec![
+            LowGranularityFeatures {
+                timestamp: 0.0,
+                pitch: 0.0,
+                volume: 0.1,
+                bpm: 0.0,
+                is_beat: false,
+                centroid: 0.0,
+                spectral_flux: 0.0,
+                bass_energy: 0.0,
+                mid_energy: 0.0,
+                high_energy: 0.0,
+                energy: 1.0,
+                spectral_spread: 0.2,
+                spectral_flatness: 0.3,
+            },
+            LowGranularityFeatures {
+                timestamp: 1.0,
+                pitch: 0.0,
+                volume: 0.2,
+                bpm: 0.0,
+                is_beat: true,
+                centroid: 0.0,
+                spectral_flux: 0.0,
+                bass_energy: 0.0,
+                mid_energy: 0.0,
+                high_energy: 0.0,
+                energy: 0.5,
+                spectral_spread: 0.4,
+                spectral_flatness: 0.2,
+            },
+            LowGranularityFeatures {
+                timestamp: 2.0,
+                pitch: 0.0,
+                volume: 0.3,
+                bpm: 0.0,
+                is_beat: false,
+                centroid: 0.0,
+                spectral_flux: 0.0,
+                bass_energy: 0.0,
+                mid_energy: 0.0,
+                high_energy: 0.0,
+                energy: 0.2,
+                spectral_spread: 0.1,
+                spectral_flatness: 0.1,
+            },
+        ];
+
+        // mid features: single window centered at 1.0s
+        let mid = vec![MidGranularityFeatures {
+            timestamp: 1.0,
+            standard_deviation_energy: 0.2,
+            median_energy: 0.5,
+            median_spectral_spread: 0.25,
+        }];
+
+        let song = SongFeatures::from_low_and_mid(low.clone(), mid.clone());
+        // check lengths and some aggregate helpers
+        assert!(song.len() > 0);
+        let beats = song.beat_timestamps();
+        assert_eq!(beats.len(), 1);
+
+        // feature_timestamps for Volume should have same length as frames
+        let vols = song.feature_timestamps(&FeatureType::Volume);
+        assert_eq!(vols.len(), song.len());
+
+        // min/max helpers
+        let min_v = song.min_feature(&FeatureType::Volume);
+        let max_v = song.max_feature(&FeatureType::Volume);
+        assert!(min_v <= max_v);
     }
 }
