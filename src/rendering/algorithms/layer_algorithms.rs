@@ -131,17 +131,13 @@ pub struct ColourAlgorithm {
     in_set: bool,
 }
 impl ColourAlgorithm {
-    fn factory(bailout2: f64) -> Self {
+    pub const DEFAULT_BAILOUT2: f64 = 16.0;
+
+    pub fn new(bailout2: f64) -> Self {
         Self {
             bailout2,
             output: 0.0,
             in_set: false,
-        }
-    }
-
-    pub fn new() -> Self {
-        Self {
-            ..Default::default()
         }
     }
 
@@ -187,7 +183,7 @@ impl LayerAlgorithm for ColourAlgorithm {
 }
 impl Default for ColourAlgorithm {
     fn default() -> Self {
-        Self::factory(10.)
+        Self::new(Self::DEFAULT_BAILOUT2)
     }
 }
 
@@ -206,9 +202,9 @@ pub struct OrbitTrapAlgorithm {
     in_set: bool,
 }
 impl OrbitTrapAlgorithm {
-    const DEFAULT_BAILOUT2: f64 = 4.5;
+    pub const DEFAULT_BAILOUT2: f64 = 4.0;
 
-    fn factory(trap: OrbitTrapType, bailout2: f64) -> Self {
+    pub fn new(trap: OrbitTrapType, bailout2: f64) -> Self {
         Self {
             bailout2,
             min_distance2: f64::INFINITY,
@@ -219,10 +215,6 @@ impl OrbitTrapAlgorithm {
             output: 0.0,
             in_set: false,
         }
-    }
-
-    pub fn new(trap: OrbitTrapType) -> Self {
-        Self::factory(trap, Self::DEFAULT_BAILOUT2)
     }
 
     fn generate_output_double(&self) -> f64 {
@@ -295,7 +287,7 @@ impl LayerAlgorithm for OrbitTrapAlgorithm {
 }
 impl Default for OrbitTrapAlgorithm {
     fn default() -> Self {
-        Self::factory(
+        Self::new(
             OrbitTrapType::Point(OrbitTrapPoint::default()),
             Self::DEFAULT_BAILOUT2,
         )
@@ -321,9 +313,9 @@ pub struct Shading3DAlgorithm {
 impl Shading3DAlgorithm {
     pub const DEFAULT_H2: f64 = 1.5;
     pub const DEFAULT_ANGLE: f64 = 45.0;
-    const DEFAULT_BAILOUT2: f64 = 1e8;
+    pub const DEFAULT_BAILOUT2: f64 = 1e8;
 
-    fn factory(h2: f64, angle: f64, bailout2: f64) -> Self {
+    pub fn new(h2: f64, angle: f64, bailout2: f64) -> Self {
         Self {
             bailout2,
             h2,
@@ -339,10 +331,6 @@ impl Shading3DAlgorithm {
             output: 0.0,
             in_set: false,
         }
-    }
-
-    pub fn new(h2: f64, angle: f64) -> Self {
-        Self::factory(h2, angle, Self::DEFAULT_BAILOUT2)
     }
 
     fn generate_output_double(&self, z: Complex) -> f64 {
@@ -403,7 +391,7 @@ impl LayerAlgorithm for Shading3DAlgorithm {
 }
 impl Default for Shading3DAlgorithm {
     fn default() -> Self {
-        Self::factory(
+        Self::new(
             Self::DEFAULT_H2,
             Self::DEFAULT_ANGLE,
             Self::DEFAULT_BAILOUT2,
@@ -427,11 +415,11 @@ pub struct TriangleInequalityAlgorithm {
     in_set: bool,
 }
 impl TriangleInequalityAlgorithm {
-    const DEFAULT_BAILOUT2: f64 = 1e40;
+    pub const DEFAULT_BAILOUT2: f64 = 1e40;
     /// Average power: skews values averaged by raising them to this power.
     pub const DEFAULT_APOWER: f64 = 1.0;
 
-    fn factory(apower: f64, bailout2: f64) -> Self {
+    pub fn new(apower: f64, bailout2: f64) -> Self {
         Self {
             bailout2,
             max_iter: Default::default(),
@@ -445,10 +433,6 @@ impl TriangleInequalityAlgorithm {
             output: 0.0,
             in_set: false,
         }
-    }
-
-    pub fn new(apower: f64) -> Self {
-        Self::factory(apower, Self::DEFAULT_BAILOUT2)
     }
 
     fn get_output_double(&mut self, z: Complex, i: u32) -> f64 {
@@ -534,7 +518,7 @@ impl LayerAlgorithm for TriangleInequalityAlgorithm {
 }
 impl Default for TriangleInequalityAlgorithm {
     fn default() -> Self {
-        Self::factory(Self::DEFAULT_APOWER, Self::DEFAULT_BAILOUT2)
+        Self::new(Self::DEFAULT_APOWER, Self::DEFAULT_BAILOUT2)
     }
 }
 
@@ -555,12 +539,12 @@ pub struct StripeAverageAlgorithm {
     in_set: bool,
 }
 impl StripeAverageAlgorithm {
-    const DEFAULT_BAILOUT2: f64 = 1e8;
+    pub const DEFAULT_BAILOUT2: f64 = 1e40;
 
     pub const DEFAULT_SKIP_ITERATION: u32 = 1;
     pub const DEFAULT_STRIPE_DENSITY: f64 = 1.0;
 
-    fn factory(skip_iteration: u32, stripe_density: f64, bailout2: f64) -> Self {
+    pub fn new(skip_iteration: u32, stripe_density: f64, bailout2: f64) -> Self {
         Self {
             bailout2,
             skip_iteration,
@@ -572,10 +556,6 @@ impl StripeAverageAlgorithm {
             output: 0.0,
             in_set: false,
         }
-    }
-
-    pub fn new(skip_iteration: u32, stripe_density: f64) -> Self {
-        Self::factory(skip_iteration, stripe_density, Self::DEFAULT_BAILOUT2)
     }
 
     /// t_n = t(z_n) = sin(s * arg(z_n))/2 + 1/2
@@ -657,10 +637,107 @@ impl LayerAlgorithm for StripeAverageAlgorithm {
 }
 impl Default for StripeAverageAlgorithm {
     fn default() -> Self {
-        Self::factory(
+        Self::new(
             Self::DEFAULT_SKIP_ITERATION,
             Self::DEFAULT_STRIPE_DENSITY,
             Self::DEFAULT_BAILOUT2,
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn colour_algorithm_out_and_in() {
+        let mut c = ColourAlgorithm::default();
+        // choose a z with non-zero magnitude
+        let z = Complex::new(4.0, 0.0);
+        c.out_set_double(z, 3);
+        // output should be set to a positive (smoothed) iteration value
+        assert!(c.get_output() > 0.0);
+
+        // calling in_set should reset the output to 0
+        c.in_set_double(z);
+        assert_eq!(c.get_output(), 0.0);
+    }
+
+    #[test]
+    fn orbit_trap_algorithm_distance_output() {
+        let trap =
+            OrbitTrapType::Point(OrbitTrapPoint::new((1.0, 0.0), OrbitTrapAnalysis::Distance));
+        let mut ot = OrbitTrapAlgorithm::new(trap, 16.0);
+        ot.before(100);
+
+        // update during to record a closer approach
+        ot.during_double(Complex::new(3.0, 0.0), 1);
+        // finalize as outside set
+        ot.out_set_double(Complex::new(3.0, 0.0), 1);
+
+        assert!(ot.get_output().is_finite());
+        assert_eq!(ot.get_in_set(), false);
+    }
+
+    #[test]
+    fn shading3d_algorithm_expected_range() {
+        let mut s = Shading3DAlgorithm::default();
+        // use a simple z: magnitude 2.0 so normalization yields (1,0)
+        let z = Complex::new(2.0, 0.0);
+
+        s.in_set_double(z);
+        let out = s.get_output();
+
+        // Expected to be between 0 and 1
+        assert!(out >= 0.0 && out <= 1.0);
+
+        // Check a rough expected numeric value for this configuration
+        // When u = (1,0) and angle=45deg, t ~ cos(45deg) -> (cos(45)+h2)/(1+h2)
+        let expected = (f64::cos(45.0_f64.to_radians()) + Shading3DAlgorithm::DEFAULT_H2)
+            / (1.0 + Shading3DAlgorithm::DEFAULT_H2);
+        let diff = (out - expected).abs();
+        assert!(diff < 1e-6);
+    }
+
+    #[test]
+    fn triangle_inequality_basic_flow() {
+        let mut t = TriangleInequalityAlgorithm::new(1.0, 1e40);
+        t.before(10);
+
+        // first point initialises internal state
+        t.during_double(Complex::new(2.0, 0.0), 1);
+        // second point will contribute to the sum
+        t.during_double(Complex::new(3.0, 0.0), 2);
+
+        // compute output as if escaped on iteration 2
+        t.out_set_double(Complex::new(3.0, 0.0), 2);
+        let out = t.get_output();
+        assert!(out.is_finite());
+    }
+
+    #[test]
+    fn stripe_average_basic_flow() {
+        let mut s =
+            StripeAverageAlgorithm::new(StripeAverageAlgorithm::DEFAULT_SKIP_ITERATION, 1.0, 1e6);
+        s.before(100);
+
+        // i must be > skip_iteration to be accumulated.
+        // run two iterations so previous average uses a non zero divisor
+        s.during_double(
+            Complex::new(1.0, 0.1),
+            StripeAverageAlgorithm::DEFAULT_SKIP_ITERATION + 1,
+        );
+        s.during_double(
+            Complex::new(1.2, 0.2),
+            StripeAverageAlgorithm::DEFAULT_SKIP_ITERATION + 2,
+        );
+        // Simulate an escape on the later iteration
+        s.out_set_double(
+            Complex::new(1.2, 0.2),
+            StripeAverageAlgorithm::DEFAULT_SKIP_ITERATION + 2,
+        );
+
+        let out = s.get_output();
+        assert!(out.is_finite());
     }
 }

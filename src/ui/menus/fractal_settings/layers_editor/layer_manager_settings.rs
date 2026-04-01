@@ -64,10 +64,11 @@ impl LayerManagerSettings {
 
             let mut layer_clone = layer_manager.layers[layer_idx].clone();
             layer_clone.strength = 1.0;
-            let layers_vector =
-                if layer_clone.algorithm.get_mapping_kind() == LayerMappingKind::Shade {
-                    let to_shade_layer = Layer::new(
-                        crate::rendering::manager::layer::LayerAlgorithmKind::Colour,
+            let layers_vector = if layer_clone.algorithm.get_mapping_kind()
+                == LayerMappingKind::Shade
+            {
+                let to_shade_layer = Layer::new(
+                        crate::rendering::manager::layer::LayerAlgorithmKind::Colour { bailout2: crate::rendering::algorithms::layer_algorithms::ColourAlgorithm::DEFAULT_BAILOUT2 },
                         crate::rendering::manager::layer::LayerRange::Both,
                         1.0,
                         Palette::new_even(
@@ -77,10 +78,10 @@ impl LayerManagerSettings {
                             0.0,
                         ),
                     );
-                    vec![to_shade_layer, layer_clone]
-                } else {
-                    vec![layer_clone]
-                };
+                vec![to_shade_layer, layer_clone]
+            } else {
+                vec![layer_clone]
+            };
 
             let mut fractal_params = project.fractal_settings.params.lock().unwrap().clone();
             let canvas_dims =
