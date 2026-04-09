@@ -47,6 +47,10 @@ impl LayerManagerSettings {
     ) -> bool {
         let layer_manager = &mut project.fractal_settings.layers.lock().unwrap();
 
+        if layer_manager.layers.len() < self.layer_previews.len() {
+            self.layer_previews.truncate(layer_manager.layers.len());
+        }
+
         // Set length of layer previews
         while self.layer_previews.len() < layer_manager.layers.len() {
             self.layer_previews.push(None);

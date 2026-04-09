@@ -116,7 +116,7 @@ impl AudioMapperMode {
     }
 
     pub fn changed_project(&mut self, project: &crate::project::Project) {
-        self.context.updated_fractal_settings(project);
+        self.changed_fractal_settings(project);
     }
 }
 impl AppModeScreen for AudioMapperMode {
