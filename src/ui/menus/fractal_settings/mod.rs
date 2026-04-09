@@ -1,7 +1,7 @@
 use crate::{
     project::Project,
     ui::{
-        AppModeScreen,
+        AppModeScreen, AppSignal,
         fractal::{
             fractal_canvas::CanvasDimensions, fractal_window::FractalWindow,
             zoom_window::ZoomWindowInteractState,
@@ -80,9 +80,14 @@ impl FractalSettingsMode {
             }),
         }
     }
+
+    pub fn changed_project(&mut self, project: &Project) {
+        self.main_fractal.changed_project(project);
+        self.context.request_render = true;
+    }
 }
 impl AppModeScreen for FractalSettingsMode {
-    fn update(&mut self, project: &mut Project, egui_ctx: &egui::Context) -> bool {
+    fn update(&mut self, project: &mut Project, egui_ctx: &egui::Context) -> AppSignal {
         egui_ctx.style_mut(|style| {
             style.visuals.override_text_color = Some(egui::Color32::DARK_GRAY);
             style.visuals.widgets.active.fg_stroke =
@@ -106,7 +111,11 @@ impl AppModeScreen for FractalSettingsMode {
         let save_and_close = self.controls.update(egui_ctx, &mut self.context);
         self.footer.update(egui_ctx, project, &mut self.context);
 
-        save_and_close
+        if save_and_close {
+            AppSignal::SwapMode
+        } else {
+            AppSignal::None
+        }
     }
 
     fn draw(&self) {

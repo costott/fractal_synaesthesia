@@ -55,6 +55,11 @@ impl FractalWindow {
 
         self.zoom_window.draw();
     }
+
+    pub fn changed_project(&mut self, project: &crate::project::Project) {
+        self.fractal_visualiser
+            .set_layer_manager(project.fractal_settings.layers.clone());
+    }
 }
 impl FractalSettingsWindow for FractalWindow {
     fn update(

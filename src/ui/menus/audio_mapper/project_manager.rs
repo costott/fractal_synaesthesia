@@ -7,14 +7,16 @@ impl ProjectManager {
     pub fn new(params: WindowParams) -> Self {
         Self { params }
     }
-}
-impl AudioMapperWindow for ProjectManager {
-    fn update(
+
+    /// Returns true if a project was loaded
+    pub fn update(
         &mut self,
         egui_ctx: &egui::Context,
         project: &mut crate::project::Project,
         _ctx: &mut super::AudioMapperContext,
-    ) {
+    ) -> bool {
+        let mut new_project = false;
+
         egui::Area::new(egui::Id::new("project manager"))
             .fixed_pos(egui::pos2(self.params.x as f32, self.params.y as f32))
             .order(egui::Order::Foreground)
@@ -47,6 +49,7 @@ impl AudioMapperWindow for ProjectManager {
                                     serde_json::from_str::<crate::project::Project>(&json)
                                 {
                                     *project = loaded_project;
+                                    new_project = true;
                                 }
                             }
                         }
@@ -71,5 +74,7 @@ impl AudioMapperWindow for ProjectManager {
                     }
                 });
             });
+
+        new_project
     }
 }

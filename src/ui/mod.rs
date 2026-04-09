@@ -27,6 +27,13 @@ enum AppMode {
     AudioMapper,
 }
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum AppSignal {
+    None,
+    SwapMode,
+    UpdateProject,
+}
+
 pub struct App {
     mode: AppMode,
     fractal_settings: FractalSettingsMode,
@@ -47,23 +54,32 @@ impl App {
 
     pub fn update(&mut self) {
         egui_macroquad::ui(|egui_ctx| {
-            match &mut self.mode {
+            let signal = match &mut self.mode {
                 AppMode::FractalSettings => {
-                    let to_swap = self.fractal_settings.update(&mut self.project, egui_ctx);
+                    let signal = self.fractal_settings.update(&mut self.project, egui_ctx);
 
-                    if to_swap {
+                    if let AppSignal::SwapMode = signal {
                         self.mode = AppMode::AudioMapper;
                         self.audio_mapper.changed_fractal_settings(&self.project);
                     }
+
+                    signal
                 }
                 AppMode::AudioMapper => {
-                    let to_swap = self.audio_mapper.update(&mut self.project, egui_ctx);
+                    let signal = self.audio_mapper.update(&mut self.project, egui_ctx);
 
-                    if to_swap {
+                    if let AppSignal::SwapMode = signal {
                         self.mode = AppMode::FractalSettings;
                     }
+
+                    signal
                 }
             };
+
+            if signal == AppSignal::UpdateProject {
+                self.fractal_settings.changed_project(&self.project);
+                self.audio_mapper.changed_project(&self.project);
+            }
         });
     }
 
@@ -78,7 +94,7 @@ impl App {
 
 trait AppModeScreen {
     /// Update the screen, and return whether or not the mode should be swapped
-    fn update(&mut self, _project: &mut Project, _egui_ctx: &egui::Context) -> bool;
+    fn update(&mut self, _project: &mut Project, _egui_ctx: &egui::Context) -> AppSignal;
     fn draw(&self);
 }
 

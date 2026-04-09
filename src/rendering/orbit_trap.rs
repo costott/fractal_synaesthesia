@@ -392,11 +392,6 @@ impl PartialEq for OrbitTrapCircle {
 impl Eq for OrbitTrapCircle {}
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-}
-
-#[cfg(test)]
 mod orbit_tests {
     use super::*;
 
