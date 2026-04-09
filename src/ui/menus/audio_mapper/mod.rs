@@ -4,7 +4,9 @@ use macroquad::prelude::*;
 
 use crate::{
     rendering::video::{VideoManager, song_manager::SongManager},
-    ui::{AppModeScreen, fractal::fractal_canvas::CanvasDimensions, window::WindowParams},
+    ui::{
+        AppModeScreen, AppSignal, fractal::fractal_canvas::CanvasDimensions, window::WindowParams,
+    },
 };
 
 mod video_preview_window;
@@ -112,9 +114,17 @@ impl AudioMapperMode {
         self.context.updated_fractal_settings(project);
         self.video_preview_window.changed_fractal_settings(project);
     }
+
+    pub fn changed_project(&mut self, project: &crate::project::Project) {
+        self.context.updated_fractal_settings(project);
+    }
 }
 impl AppModeScreen for AudioMapperMode {
-    fn update(&mut self, project: &mut crate::project::Project, egui_ctx: &egui::Context) -> bool {
+    fn update(
+        &mut self,
+        project: &mut crate::project::Project,
+        egui_ctx: &egui::Context,
+    ) -> AppSignal {
         egui_ctx.style_mut(|style| {
             style.visuals.override_text_color = Some(egui::Color32::WHITE);
             style.visuals.extreme_bg_color = egui::Color32::DARK_GRAY;
@@ -183,14 +193,18 @@ impl AppModeScreen for AudioMapperMode {
 
         self.export_menu.update(egui_ctx, &mut self.context);
 
-        self.project_manager
-            .update(egui_ctx, project, &mut self.context);
-
-        if self.footer.update(egui_ctx) {
-            return true;
+        if self
+            .project_manager
+            .update(egui_ctx, project, &mut self.context)
+        {
+            return AppSignal::UpdateProject;
         }
 
-        false
+        if self.footer.update(egui_ctx) {
+            return AppSignal::SwapMode;
+        }
+
+        AppSignal::None
     }
 
     fn draw(&self) {

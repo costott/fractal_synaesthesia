@@ -356,10 +356,7 @@ pub struct VideoFrameManager {
 impl VideoFrameManager {
     pub fn new(end_params: FractalParams) -> Self {
         Self {
-            start_frame: VideoFrame::new(
-                BigComplex::from_f64s(-0.5, 0.0),
-                end_params.max_iterations,
-            ),
+            start_frame: VideoFrame::new(BigComplex::from_f64s(-0.5, 0.0), 500),
             end_frame: VideoFrame::from_params(end_params),
         }
     }
@@ -416,6 +413,16 @@ impl VideoFrame {
             frame2.center.clone()
         };
 
-        Self::new(center, frame1.max_iterations)
+        // linear interpolate between max iterations
+        let max_iterations = if frame1.max_iterations == frame2.max_iterations {
+            frame1.max_iterations
+        } else {
+            let ratio = current_magnification / move_center_magnification;
+            let t = ratio.min(1.0);
+            (frame1.max_iterations as f64 * (1.0 - t) + frame2.max_iterations as f64 * t).round()
+                as u32
+        };
+
+        Self::new(center, max_iterations)
     }
 }
