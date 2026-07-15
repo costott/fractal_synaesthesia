@@ -3,8 +3,14 @@
 > A high-performance Rust application that transforms music into real-time Mandelbrot fractal visualisations through audio feature extraction and configurable visual mappings.
 
 ![Rust](https://img.shields.io/badge/Rust-Programming%20Language-orange)
-![WGPU](https://img.shields.io/badge/WGPU-GPU%20Rendering-blue)
 ![FFmpeg](https://img.shields.io/badge/FFmpeg-Video%20Export-green)
+
+<p align="center">
+    <video src="./assets/snippet.mp4"
+        controls
+        width="900">
+    </video>
+</p>
 
 ## Overview
 
