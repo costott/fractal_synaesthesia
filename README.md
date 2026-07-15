@@ -5,13 +5,6 @@
 ![Rust](https://img.shields.io/badge/Rust-Programming%20Language-orange)
 ![FFmpeg](https://img.shields.io/badge/FFmpeg-Video%20Export-green)
 
-<p align="center">
-    <video src="./assets/snippet.mp4"
-        controls
-        width="900">
-    </video>
-</p>
-
 ## Overview
 
 Fractal Synaesthesia is my final-year Computer Science dissertation project at the University of Warwick.
