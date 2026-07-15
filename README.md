@@ -1,10 +1,147 @@
-# Accessing the source code
+# Fractal Synaesthesia
 
-All source code can be found in the `src/` folder.
+> A high-performance Rust application that transforms music into real-time Mandelbrot fractal visualisations through audio feature extraction and configurable visual mappings.
 
-# How to run
+![Rust](https://img.shields.io/badge/Rust-Programming%20Language-orange)
+![WGPU](https://img.shields.io/badge/WGPU-GPU%20Rendering-blue)
+![FFmpeg](https://img.shields.io/badge/FFmpeg-Video%20Export-green)
 
-## Prerequisites
+## Overview
+
+Fractal Synaesthesia is my final-year Computer Science dissertation project at the University of Warwick.
+
+The application analyses music to extract features such as tempo, beat locations, pitch, loudness and spectral information, then maps those features onto parameters of a Mandelbrot renderer. The result is an interactive visualisation where the fractal evolves in response to the music in real time.
+
+Rather than generating fixed animations, users can create their own mappings between musical characteristics and visual behaviour, allowing every song to produce a unique experience.
+
+---
+
+## Features
+
+- 🎵 Audio feature extraction
+    - Beat detection
+    - Tempo estimation
+    - Pitch tracking
+    - Volume analysis
+    - Spectral centroid
+    - Spectral flux
+    - Frequency band energy
+    - Emotion (arousal/valence) estimation
+
+- 🌀 High-performance Mandelbrot rendering
+    - Deep zoom support
+    - Perturbation rendering
+    - Arbitrary precision arithmetic
+    - Dynamic quality scaling for smooth previews
+
+- 🎨 Configurable visual mappings
+    - Beat-triggered events
+    - Continuous parameter modulation
+    - Layer-based rendering system
+    - User-defined mapping presets
+
+- 🎥 Video export
+    - Render animations directly to video
+    - FFmpeg integration
+    - Export individual frames
+
+---
+
+## Example Workflow
+
+```
+Audio File
+      │
+      ▼
+Audio Analysis
+      │
+      ▼
+Feature Extraction
+      │
+      ▼
+Mapping Engine
+      │
+      ▼
+Fractal Renderer
+      │
+      ▼
+Real-time Visualisation / Video Export
+```
+
+---
+
+## Technical Highlights
+
+This project combines several challenging areas of software engineering:
+
+- High-performance systems programming in Rust
+- Digital signal processing
+- Fractal mathematics
+- Multi-threaded rendering
+- Large-scale application architecture
+- Interactive UI design
+
+Several optimisation techniques were implemented to keep rendering responsive, including:
+
+- Perturbation rendering
+- Orbit rebasing
+- Dynamic render quality
+- Background rendering threads
+- Cached reference orbits
+
+---
+
+## Performance
+
+Rendering deep Mandelbrot zooms is computationally expensive.
+
+To achieve interactive frame rates, the renderer incorporates:
+
+- perturbation theory
+- arbitrary precision reference orbits
+- adaptive rendering quality
+- background rendering workers
+- cached calculations
+
+Profiling (AMD uProf) identified rendering as the primary bottleneck, leading to several optimisation passes throughout development.
+
+---
+
+## What I Learned
+
+This project gave me practical experience with:
+
+- Designing large Rust applications
+- Performance profiling and optimisation
+- Concurrent programming
+- Digital signal processing
+- Numerical algorithms
+- Building software from research papers
+
+---
+
+## Future Improvements
+
+Some ideas for future development include:
+
+- More advanced shader effects
+- Machine learning generated mapping presets
+- Additional fractal types
+- Cross-platform binary releases
+
+---
+
+## Dissertation
+
+This repository contains the implementation developed for my final-year dissertation at the University of Warwick.
+
+The focus of the project was combining fractal rendering with music analysis to create an extensible, interactive visualisation platform while exploring performance optimisation techniques required for real-time rendering.
+
+---
+
+## How to run
+
+### Prerequisites
 
 It is recommended to build and run on Windows, as this software hasn't been tested on other operating systems, and some features are known to not work.
 
