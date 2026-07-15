@@ -1,10 +1,13 @@
 # Fractal Synaesthesia
 
-> A high-performance Rust application that transforms music into real-time Mandelbrot fractal visualisations through audio feature extraction and configurable visual mappings.
+> A high-performance Rust application that transformts music into real-time Mandelbrot fractal visualisations through audio feature extraction and configurable visual mappings.
 
 ![Rust](https://img.shields.io/badge/Rust-Programming%20Language-orange)
-![WGPU](https://img.shields.io/badge/WGPU-GPU%20Rendering-blue)
 ![FFmpeg](https://img.shields.io/badge/FFmpeg-Video%20Export-green)
+
+<p align="center">
+    <img src="./assets/speedy-compressed.gif" alt="Fractal Synaesthesia Demo" width="900">
+</p>
 
 ## Overview
 
